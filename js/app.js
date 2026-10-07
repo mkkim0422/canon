@@ -59,7 +59,9 @@ function route() {
   if (page === 'settings') return renderSettings(view);
   if (page === 'ref' && a === 'pick') return refLoad() ? renderRefPick(view) : (location.hash = 'ref');
   if (page === 'ref' && a === 'result') { const s = refLoad(); return s && byId(SCENES, s.scene) ? renderRefResult(view) : (location.hash = s ? 'ref.pick' : 'ref'); }
-  if (page === 'ref') store.set(K.tab, 'ref');
+  if (page === 'ref') { store.set(K.tab, 'ref'); return renderRefHome(view); }
+  if (page === 'diag' && a === 'result') return diagLoad() ? renderDiagResult(view) : (location.hash = 'diag');
+  if (page === 'diag') { store.set(K.tab, 'ref'); return renderDiagHome(view); }
   renderHome(view);
 }
 
@@ -158,7 +160,7 @@ function renderHome(view) {
     ${header(APP_NAME, null, { lens: true })}
     ${banner}
     ${recentCard}
-    ${segment([{ id: 'scene', label: '상황으로 찾기' }, { id: 'style', label: '원하는 사진으로 찾기' }, { id: 'ref', label: '이 사진처럼' }], tab, 'tab', 'three')}
+    ${segment([{ id: 'scene', label: '상황으로 찾기' }, { id: 'style', label: '원하는 사진으로 찾기' }, { id: 'ref', label: '사진으로' }], tab, 'tab', 'three')}
     ${tab === 'scene' ? `
       <div class="grid">
         ${SCENES.map((s) => `<a class="card press scene" href="#scene.${s.id}"><b>${s.label}</b><small>${s.sub}</small></a>`).join('')}
@@ -168,12 +170,15 @@ function renderHome(view) {
           <span class="slot">${slotImg(s.image)}</span>
           <span class="txt"><b>${s.title}</b><small>${s.desc}</small></span>
         </a>`).join('')}
-      </div>` : renderRefTab()}`;
+      </div>` : `
+      <a class="card press big" href="#ref"><span class="txt"><b>이 사진처럼 찍기</b><small>찍고 싶은 사진을 올리면 내 장비로 어떻게 찍을지</small></span><span class="chev">›</span></a>
+      ${refSamplesRow()}
+      <a class="card press big" href="#diag"><span class="txt"><b>내 사진 진단</b><small>내가 찍은 사진이 왜 아쉬운지, 다음엔 어떻게</small></span><span class="chev">›</span></a>`}`;
   view.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => { store.set(K.tab, b.dataset.tab); renderHome(view); }));
-  if (tab === 'ref') bindRefTab(view);
+  if (tab === 'ref') bindRefSamples(view);
 }
 
-// ---------- 이 사진처럼 찍기 (1단계: 홈 탭 / 로딩 / 실패) ----------
+// ---------- 이 사진처럼 찍기 (1단계: #ref 페이지 / 로딩 / 실패) ----------
 let REF = null; // 메모리 사본. sessionStorage(REF_KEY)와 같은 내용. 새로고침으로 둘 다 없으면 #ref로.
 function refLoad() {
   if (REF) return REF;
@@ -184,9 +189,17 @@ function refSave(o) { REF = o; try { sessionStorage.setItem(REF_KEY, JSON.string
 const refMode = () => (store.get(K.refMode, 'mock') === 'gemini' ? 'gemini' : 'mock');
 const ownedLensIds = (cam) => compatibleLenses(cam).map((l) => l.id); // 앱은 렌즈 전부를 '내 렌즈'로 본다(렌즈 2종 원칙)
 
-function renderRefTab() {
+// 예시 썸네일 줄 (홈 '사진으로' 탭의 '이 사진처럼' 카드 아래 + #ref 페이지). 누르면 그 샘플로 바로 '이 사진처럼' 분석.
+function refSamplesRow() {
+  return `<p class="ref-note samples">예시로 해보기</p>
+    <div class="thumbs" role="list">
+      ${STYLES.map((s) => `<button type="button" role="listitem" class="slot press" data-sample="${s.id}" aria-label="${esc(s.title)}">${slotImg(s.image)}</button>`).join('')}
+    </div>`;
+}
+function renderRefHome(view) {
   const offline = navigator.onLine === false && refMode() === 'gemini';
-  return `
+  view.innerHTML = `
+    ${header('이 사진처럼 찍기', '#home', { noGear: true })}
     <section class="card">
       <p class="ref-lead">찍고 싶은 사진을 올리면 내 카메라·렌즈로 어떻게 찍을지 알려드려요</p>
       <p class="ref-note">분석 후 사진은 저장되지 않아요</p>
@@ -195,14 +208,12 @@ function renderRefTab() {
       사진 올리기<input type="file" accept="image/*" id="refFile" ${offline ? 'disabled' : ''}>
     </label>
     ${offline ? '<p class="foot center">이 기능은 인터넷이 필요해요</p>' : ''}
-    <h2 class="sec">예시로 해보기</h2>
-    <div class="thumbs" role="list">
-      ${STYLES.map((s) => `<button type="button" role="listitem" class="slot press" data-sample="${s.id}" aria-label="${esc(s.title)}">${slotImg(s.image)}</button>`).join('')}
-    </div>`;
-}
-function bindRefTab(view) {
+    ${refSamplesRow()}`;
   const inp = $('refFile');
-  if (inp) inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) refAnalyze(view, f); });
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) refAnalyze(view, f); });
+  bindRefSamples(view);
+}
+function bindRefSamples(view) {
   view.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => {
     const st = byId(STYLES, b.dataset.sample);
     try {
@@ -350,6 +361,157 @@ function renderRefResult(view, opts = {}) {
     <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
   bindLensRow(view, r, (prev) => renderRefResult(view, { prev }));
   flashChanged(view, r, opts.prev);
+}
+
+// ---------- 내 사진 진단 (#diag → #diag.result). AI 없음, 오프라인. 로직은 exif.js/pixels.js/diagnose.js ----------
+const DIAG_KEY = 'cck.diag'; // sessionStorage. lights·findings·exifSummary·sceneGuess·subjectGuess·축소본 dataURL·진단 바디/렌즈 id만. 원본 없음.
+let DIAGS = null;
+function diagLoad() {
+  if (DIAGS) return DIAGS;
+  try { const v = sessionStorage.getItem(DIAG_KEY); DIAGS = v ? JSON.parse(v) : null; } catch (e) { DIAGS = null; }
+  return DIAGS && DIAGS.lights ? DIAGS : null;
+}
+function diagSave(o) { DIAGS = o; try { sessionStorage.setItem(DIAG_KEY, JSON.stringify(o)); } catch (e) { /* 메모리 사본으로만 */ } }
+
+function renderDiagHome(view) {
+  view.innerHTML = `
+    ${header('내 사진 진단', '#home', { noGear: true })}
+    <section class="card">
+      <p class="ref-lead">내가 찍은 사진이 왜 아쉬운지, 다음엔 어떻게 찍을지 알려드려요</p>
+      <p class="ref-note">카메라에서 바로 나온 JPEG일수록 정확해요 (카톡·편집본은 촬영 정보가 지워짐)</p>
+      <p class="ref-note">사진은 저장되지 않아요 · 인터넷 없이 동작</p>
+    </section>
+    <label class="btn press file">사진 올리기<input type="file" accept="image/jpeg,image/jpg" id="diagFile"></label>
+    <p class="foot">흔들림 · 얼굴 밝기 · 하늘 날아감 · 노이즈 · 촬영 모드 다섯 가지를 봅니다</p>`;
+  const inp = $('diagFile');
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) diagAnalyze(view, f); });
+}
+const isJpegFile = (f) => /^image\/jpe?g$/i.test(f.type || '') || /\.jpe?g$/i.test(f.name || '');
+
+// 원본 File → readExif(원본) → 축소본(createImageBitmap resize, 없으면 Image+canvas) → pixels → diagnose → 세션 저장 → #diag.result
+async function diagAnalyze(view, file) {
+  if (!isJpegFile(file)) return renderDiagError(view, '이 형식은 촬영 정보를 읽을 수 없어요. 카메라 JPEG으로');
+  renderLoading(view, '내 사진 진단', '#diag', null);
+  try {
+    const r = await diagProcess(file, (thumb) => renderLoading(view, '내 사진 진단', '#diag', thumb));
+    diagSave(r);
+    location.hash = 'diag.result';
+  } catch (e) {
+    renderDiagError(view, e && e.message ? e.message : null);
+  }
+}
+// 처리만 (화면 없음). onThumb(dataURL)은 축소본이 준비되면 호출. 반환: 세션에 저장할 객체 + timing(ms).
+async function diagProcess(file, onThumb) {
+  const t = { start: performance.now() };
+  const exif = await readExif(file).catch(() => null);
+  t.exif = performance.now();
+  const { canvas, imageData } = await decodeToCanvas(file, 1024);
+  const thumb = canvas.toDataURL('image/jpeg', 0.85);
+  if (onThumb) onThumb(thumb);
+  t.decode = performance.now();
+  const faces = await detectFaces(canvas);
+  const px = analyzePixels(imageData, faces);
+  t.pixels = performance.now();
+  const cam = camera();
+  const d = diagnose(exif, px, cam.id, lensId());
+  t.diagnose = performance.now();
+  const timing = { exif: t.exif - t.start, decode: t.decode - t.exif, pixels: t.pixels - t.decode, diagnose: t.diagnose - t.pixels, total: t.diagnose - t.start };
+  return { lights: d.lights, findings: d.findings, exifSummary: d.exifSummary, sceneGuess: d.sceneGuess, subjectGuess: d.subjectGuess,
+    thumb, gear: d.gear, cameraId: d.cameraId, lensId: d.lensId, faceEstimate: !!px.faceEstimate, fileSize: file.size, timing };
+}
+// 긴 변 maxEdge 축소본 캔버스 + ImageData. createImageBitmap(resize) 지원 시 사용, 아니면 Image+canvas.
+async function decodeToCanvas(file, maxEdge) {
+  const c = document.createElement('canvas');
+  if (typeof createImageBitmap === 'function') {
+    let full = null, small = null;
+    try {
+      full = await createImageBitmap(file);
+      const k = Math.min(1, maxEdge / Math.max(full.width, full.height));
+      const w = Math.max(1, Math.round(full.width * k)), h = Math.max(1, Math.round(full.height * k));
+      small = k < 1 ? await createImageBitmap(full, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' }) : full;
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(small, 0, 0, w, h);
+      return { canvas: c, imageData: ctx.getImageData(0, 0, w, h) };
+    } catch (e) { /* 아래 폴백 */ } finally {
+      if (small && small !== full && small.close) small.close();
+      if (full && full.close) full.close();
+    }
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('이미지를 열 수 없어요')); i.src = url; });
+    const k = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return { canvas: c, imageData: ctx.getImageData(0, 0, c.width, c.height) };
+  } finally { URL.revokeObjectURL(url); }
+}
+function renderLoading(view, title, back, thumb) {
+  view.innerHTML = `
+    ${header(title, back, { noGear: true })}
+    <section class="card">
+      <div class="slot wide">${thumb ? `<img src="${thumb}" alt="">` : ''}</div>
+      <p class="ref-lead">사진 보는 중</p>
+      <div class="skel"><span></span><span class="w60"></span></div>
+    </section>
+    <section class="card"><div class="skel"><span class="w40"></span><span></span><span class="w80"></span></div></section>`;
+}
+function renderDiagError(view, msg) {
+  view.innerHTML = `
+    ${header('내 사진 진단', '#diag', { noGear: true })}
+    <section class="card"><p class="warn"><b class="warn">진단하지 못했어요.</b> ${esc(msg || '다시 시도')}</p></section>
+    <a class="btn press" href="#diag">돌아가기</a>`;
+}
+
+const LIGHT_LABEL = { blur: '흔들림', face: '얼굴', highlights: '하늘', noise: '노이즈', mode: '모드' };
+const SEV_ICON = {
+  bad: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f04452" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  warn: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"/><circle cx="12" cy="18.5" r="1" fill="#f59e0b"/></svg>',
+  info: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b95a1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="8" r="1" fill="#8b95a1"/></svg>',
+};
+function renderDiagResult(view, opts = {}) {
+  const s = diagLoad();
+  const gearDiff = !!(s.gear && s.gear.differs);
+  // 장비가 다르면 사진의 장비(진단 id)로, 같으면 현재 선택 렌즈로 next를 계산 (렌즈 칩으로 바꿀 수 있음)
+  const cam = byId(CAMERAS, gearDiff ? s.cameraId : cameraId()) || camera();
+  const lens = gearDiff ? (byId(LENSES, s.lensId) || byId(LENSES, lensId())) : byId(LENSES, lensId());
+  const scene = byId(SCENES, s.sceneGuess), subject = byId(SUBJECTS, s.subjectGuess) || byId(SUBJECTS, 'still');
+  const next = scene ? compute(cam.id, scene.id, subject.id, lens.id) : null;
+  const gear = s.findings.find((f) => f.key === 'gear');
+  const rest = s.findings.filter((f) => f.key !== 'gear');
+  const allOk = !rest.some((f) => f.sev === 'bad' || f.sev === 'warn');
+  const dot = (k) => `<div><span>${LIGHT_LABEL[k]}${k === 'face' && s.faceEstimate ? '(추정)' : ''}</span><i class="dot ${s.lights[k]}" title="${s.lights[k]}"></i></div>`;
+  view.innerHTML = `
+    ${header('내 사진 진단', '#diag', { noGear: true })}
+    <section class="card ref-photo">
+      <div class="slot wide"><img src="${s.thumb}" alt=""></div>
+      <p class="ref-note">${s.exifSummary ? esc(s.exifSummary) : '촬영 정보 없음'}</p>
+    </section>
+    <section class="card">
+      <div class="lights">${['blur', 'face', 'highlights', 'noise', 'mode'].map(dot).join('')}</div>
+    </section>
+    ${gear ? `<section class="card gear"><p>${SEV_ICON.info}<span><b>${esc(gear.title)}</b><small>${esc(gear.detail)} · ${esc(gear.fix)}</small></span></p></section>` : ''}
+    <section class="card">
+      <h2>발견한 것</h2>
+      ${allOk && rest.every((f) => f.key === 'ok' || f.key === 'noexif' || f.key === 'flash') ? `<p class="okline">설정은 문제없음. 구도·순간은 사람 몫</p>` : ''}
+      <ul class="fnd">${rest.filter((f) => !(allOk && f.key === 'ok')).map((f) => `<li>${SEV_ICON[f.sev] || SEV_ICON.info}<span><b>${esc(f.title)}</b>${f.detail ? `<small>${esc(f.detail)}</small>` : ''}${f.fix ? `<small class="info">다음엔 → ${esc(f.fix)}</small>` : ''}</span></li>`).join('')}</ul>
+    </section>
+    ${gearDiff ? '' : lensRow(cam, lens.id)}
+    <section class="card">
+      <h2>다음엔 이렇게</h2>
+      ${next ? `<a class="pill press chip" href="#r.${scene.id}.${subject.id}">추정 상황: ${scene.label} · ${subject.label} ›</a>` : `
+      <p class="ref-note">촬영 정보로 상황을 짐작하지 못했어요</p>
+      <button type="button" class="btn press ghost" id="pickScene">상황을 직접 골라주세요</button>`}
+    </section>
+    ${next ? renderKeyCard(next) + renderDialCard(next) : ''}
+    <a class="btn press" href="#diag">다른 사진</a>
+    <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
+  const ps = $('pickScene');
+  if (ps) ps.addEventListener('click', () => { store.set(K.tab, 'scene'); location.hash = 'home'; });
+  if (!gearDiff && next) { bindLensRow(view, next, (prev) => renderDiagResult(view, { prev })); flashChanged(view, next, opts.prev); }
+  else if (!gearDiff) bindLensRow(view, { aperture: 0, shutter: 0, iso: 0, ec: 0 }, () => renderDiagResult(view));
 }
 
 // ---------- 피사체 선택 ----------

@@ -52,7 +52,7 @@
 - `docs/match.md` — '이 사진처럼 찍기' 매핑 규칙 명세. **규칙 추가·수정은 이 문서 먼저.**
 - `test.html` — 샘플 9장 × 현재 상황 3가지 매핑 표. 상단 pill로 mock / gemini(confirm 후 실제 호출 9회, mock 행과 gemini 행을 나란히, 다른 칸 노란 배경, 맨 아래 '불일치 n/9'). img/를 fetch하므로 로컬 서버로 열 것(`python -m http.server 8000`; file://에서는 fetch가 막힘). (화면 연결은 다음 세션, app.js 미변경)
 - `js/app.js` — 해시 라우팅과 렌더. 로직 없음. 결과 화면 조각 함수 `renderKeyCard(r, {recLens})` / `renderDialCard(r)` / `renderRulesCard(r)` / `renderTipsCard(r)` + 렌즈 줄 `lensRow(cam, lens)` / `bindLensRow(view, r, rerender)` / `flashChanged(view, r, prev)`를 기존 결과(#r·#style)와 '이 사진처럼'(#ref.result)이 공유한다. 카드 마크업을 고칠 때는 이 함수만 고친다.
-- `index.html` / `artifact.html` — 스크립트 로드 순서: data → exposure → dials → exif → mock-features → analyze → match → app. 새 js 파일은 두 파일 모두에 추가.
+- `index.html` / `artifact.html` — 스크립트 로드 순서: data → exposure → dials → exif → mock-features → analyze → match → pixels → diagnose → app. 새 js 파일은 두 파일 모두에 추가.
 - `css/style.css` — 테마 변수, 다크모드 자동.
 - `check.js` — Node 검증 스크립트.
 - `img/` — 스타일 사진 `img/{styleId}.jpg` 9장 (AI 생성 샘플, 긴 변 1200px·300KB 이하, JPEG 80). 교체 시 같은 파일명으로 덮어쓰기. 원본은 `sample/c1~c9.png`(앱에 포함하지 않음). 변환 스크립트는 `C:\dev\canon6d2-app\make-style-images.js`(sharp). STYLES.image가 가리키는 파일이 없으면 check.js가 실패하고, 화면에서는 onerror로 빈 슬롯으로 돌아간다. familySelf는 교체 예정.
@@ -79,7 +79,7 @@
    10) 터치 피드백은 배경이 살짝 어두워지는 transition .15s만. 렌즈 토글의 0.3초 숫자 강조 외 애니메이션 없음.
    하이라이트 톤 우선은 권하지 않는다(최저 ISO 200이 되어 야외 맑음이 1/4000을 넘김).
 10. **'이 사진처럼 찍기' 화면.** 라우트 3개: `#ref`(1단계 = 홈 3번째 탭 '이 사진처럼': 설명 카드 → 사진 올리기 → 예시 썸네일 9장) / `#ref.pick`(2단계: 축소본 + summary + 상황 8개 + 피사체 pill, sameSceneId가 있으면 맨 위 파란 테두리 '사진과 같은 곳' 카드) / `#ref.result`(3단계). 분석 결과(features·exif·축소본 dataURL·summary·sameSceneId·선택한 scene/subject)는 메모리 변수 `REF` + sessionStorage `cck.ref`에만 저장. 원본 파일·사진은 localStorage·서버 어디에도 저장하지 않고 objectURL은 사용 후 revoke. 새로고침으로 세션이 비면 #ref로 보낸다. 최근 사용(recent)에는 넣지 않는다. **'이 세팅으로 찍기' 버튼은 두지 않는다** — 기존 결과 화면(#r)으로 넘기면 match의 override(조리개 5.6 등)가 사라진다. 3단계 버튼은 '다른 사진'(#ref) / '상황 바꾸기'(#ref.pick) 둘뿐. 설정의 '사진 분석' 섹션: 분석 모드 `cck.refMode`(mock 기본 / gemini), Gemini 키 `cck.geminiKey`(폰에만 저장) + '연결 테스트' 버튼(img/softKid.jpg 한 장 호출, 성공/실패·소요 시간만 표시, 키 없으면 비활성). 오프라인 + gemini면 올리기 버튼 비활성. 앱은 바디 호환 렌즈 전부를 ownedLensIds로 넘긴다.
-11. **'내 사진 진단' 원칙.** diagnose는 AI 미사용·오프라인(EXIF + 픽셀만). 규칙은 docs/diagnose.md 먼저 고치고 diagnose.js가 따라간다. S_LOW 등 임계값은 test-diag.html 수치 근거 없이 바꾸지 않는다. 숫자 세팅(next)은 compute()만. (화면 연결은 다음 세션, app.js 미변경.)
+11. **'내 사진 진단' 원칙.** diagnose는 AI 미사용·오프라인(EXIF + 픽셀만). 규칙은 docs/diagnose.md 먼저 고치고 diagnose.js가 따라간다. S_LOW 등 임계값은 test-diag.html 수치 근거 없이 바꾸지 않는다. 숫자 세팅(next)은 compute()만. 화면: 홈 3번째 탭 '사진으로'는 큰 카드 2개('이 사진처럼 찍기' #ref + 예시 썸네일 줄, '내 사진 진단' #diag). 라우트 `#diag`(JPEG만 받음. HEIC·PNG는 안내 후 중단) → `#diag.result`. 처리: readExif(원본) → createImageBitmap resize(없으면 Image+canvas) → pixels → diagnose. 결과는 메모리 `DIAGS` + sessionStorage `cck.diag`에 lights·findings·exifSummary·sceneGuess·subjectGuess·축소본 dataURL·진단 바디/렌즈 id만(원본 없음). 새로고침으로 비면 #diag로. recent에 넣지 않는다. **장비 불일치(EXIF 바디·렌즈 ≠ 현재 선택) info가 있으면 회색 카드로 분리하고 렌즈 칩 줄을 숨긴다**(계산 기준이 사진의 장비). next는 renderKeyCard + renderDialCard 재사용, null이면 '상황을 직접 골라주세요' → 홈 상황 탭.
 12. **'이 사진처럼 찍기' 원칙.** AI 응답은 Features 분류값만 사용(light/dof/motion/focalFeel/subject/framing/color). 숫자(조리개·셔터·ISO)는 compute()만. 노출보정은 현재 상황(scene.ec)에서만 — 레퍼런스가 역광이라고 +1을 주지 않는다. 매핑 규칙은 docs/match.md 먼저 고치고 match.js가 따라간다. mock 파일명 비교는 경로 제외 basename·대소문자 무시. EXIF는 원본 File에서만 읽는다.
 
 ## 계산 요약 (exposure.js를 읽지 않아도 되게)
