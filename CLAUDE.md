@@ -40,6 +40,12 @@
 - `js/data.js` — 데이터만. CAMERA_COMMON, CAMERAS(바디), 표준값 표, WB, LENSES(EF 2 + RF 4), LIGHTS, SUBJECTS(2종), SCENES(8개), STYLES(9개), SETUP_COMMON / SETUP_CMODE_STEPS(한 번만 하는 설정 템플릿).
 - `js/exposure.js` — `compute(camera, scene, subject, lens, override)` 하나 + 마운트 호환(`lensCompatible`, `compatibleLenses`) + 바디별 표준값 표(`tablesFor`). 로직 변경은 여기만. 문구는 만들지 않는다.
 - `js/dials.js` — `dialSteps(r)`. family별 다이얼 조작 문구 템플릿(Av/M). 문구 수정은 여기만.
+- `js/exif.js` — JPEG EXIF 최소 파서 `readExif(file)`. 원본 File에서만 읽는다(축소본엔 EXIF 없음). PNG·WebP·태그 없음 → null.
+- `js/analyze.js` — `analyzeImage(file, mode)`. mock은 파일명(basename, 대소문자 무시)으로 MOCK_FEATURES를 돌려주고 0.8초 지연. gemini는 2단계 미구현(에러). `validateFeatures()`가 허용값 밖을 치환하고 숫자 필드를 버린다.
+- `js/mock-features.js` — img/ 샘플 9장의 Features. STYLES와 모순되면 STYLES 우선.
+- `js/match.js` — `matchFeatures(features, currentSceneId, currentSubjectId, cameraId, lensId, ownedLensIds)`. docs/match.md의 구현.
+- `docs/match.md` — '이 사진처럼 찍기' 매핑 규칙 명세. **규칙 추가·수정은 이 문서 먼저.**
+- `test.html` — 샘플 9장 × 현재 상황 3가지 mock 매핑 표. 브라우저로 열면 됨. (화면 연결은 다음 세션, app.js 미변경)
 - `js/app.js` — 해시 라우팅과 렌더. 로직 없음.
 - `css/style.css` — 테마 변수, 다크모드 자동.
 - `check.js` — Node 검증 스크립트.
@@ -66,6 +72,7 @@
    9) 이모지·외부 아이콘 금지. 꼭 필요하면 인라인 SVG 선 아이콘 20px(stroke 1.5). 현재는 뒤로·설정만.
    10) 터치 피드백은 배경이 살짝 어두워지는 transition .15s만. 렌즈 토글의 0.3초 숫자 강조 외 애니메이션 없음.
    하이라이트 톤 우선은 권하지 않는다(최저 ISO 200이 되어 야외 맑음이 1/4000을 넘김).
+10. **'이 사진처럼 찍기' 원칙.** AI 응답은 Features 분류값만 사용(light/dof/motion/focalFeel/subject/framing/color). 숫자(조리개·셔터·ISO)는 compute()만. 노출보정은 현재 상황(scene.ec)에서만 — 레퍼런스가 역광이라고 +1을 주지 않는다. 매핑 규칙은 docs/match.md 먼저 고치고 match.js가 따라간다. mock 파일명 비교는 경로 제외 basename·대소문자 무시. EXIF는 원본 File에서만 읽는다.
 
 ## 계산 요약 (exposure.js를 읽지 않아도 되게)
 - 조리개 = SCENES[scene].aperture[lens] (override 가능), 렌즈 f/최소~최대로 클램프.
