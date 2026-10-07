@@ -46,7 +46,8 @@
 - `js/match.js` — `matchFeatures(features, currentSceneId, currentSubjectId, cameraId, lensId, ownedLensIds)`. docs/match.md의 구현.
 - `docs/match.md` — '이 사진처럼 찍기' 매핑 규칙 명세. **규칙 추가·수정은 이 문서 먼저.**
 - `test.html` — 샘플 9장 × 현재 상황 3가지 mock 매핑 표. img/를 fetch하므로 로컬 서버로 열 것(`python -m http.server 8000`; file://에서는 fetch가 막힘). (화면 연결은 다음 세션, app.js 미변경)
-- `js/app.js` — 해시 라우팅과 렌더. 로직 없음.
+- `js/app.js` — 해시 라우팅과 렌더. 로직 없음. 결과 화면 조각 함수 `renderKeyCard(r, {recLens})` / `renderDialCard(r)` / `renderRulesCard(r)` / `renderTipsCard(r)` + 렌즈 줄 `lensRow(cam, lens)` / `bindLensRow(view, r, rerender)` / `flashChanged(view, r, prev)`를 기존 결과(#r·#style)와 '이 사진처럼'(#ref.result)이 공유한다. 카드 마크업을 고칠 때는 이 함수만 고친다.
+- `index.html` / `artifact.html` — 스크립트 로드 순서: data → exposure → dials → exif → mock-features → analyze → match → app. 새 js 파일은 두 파일 모두에 추가.
 - `css/style.css` — 테마 변수, 다크모드 자동.
 - `check.js` — Node 검증 스크립트.
 - `img/` — 스타일 사진 `img/{styleId}.jpg` 9장 (AI 생성 샘플, 긴 변 1200px·300KB 이하, JPEG 80). 교체 시 같은 파일명으로 덮어쓰기. 원본은 `sample/c1~c9.png`(앱에 포함하지 않음). 변환 스크립트는 `C:\dev\canon6d2-app\make-style-images.js`(sharp). STYLES.image가 가리키는 파일이 없으면 check.js가 실패하고, 화면에서는 onerror로 빈 슬롯으로 돌아간다. familySelf는 교체 예정.
@@ -72,7 +73,8 @@
    9) 이모지·외부 아이콘 금지. 꼭 필요하면 인라인 SVG 선 아이콘 20px(stroke 1.5). 현재는 뒤로·설정만.
    10) 터치 피드백은 배경이 살짝 어두워지는 transition .15s만. 렌즈 토글의 0.3초 숫자 강조 외 애니메이션 없음.
    하이라이트 톤 우선은 권하지 않는다(최저 ISO 200이 되어 야외 맑음이 1/4000을 넘김).
-10. **'이 사진처럼 찍기' 원칙.** AI 응답은 Features 분류값만 사용(light/dof/motion/focalFeel/subject/framing/color). 숫자(조리개·셔터·ISO)는 compute()만. 노출보정은 현재 상황(scene.ec)에서만 — 레퍼런스가 역광이라고 +1을 주지 않는다. 매핑 규칙은 docs/match.md 먼저 고치고 match.js가 따라간다. mock 파일명 비교는 경로 제외 basename·대소문자 무시. EXIF는 원본 File에서만 읽는다.
+10. **'이 사진처럼 찍기' 화면.** 라우트 3개: `#ref`(1단계 = 홈 3번째 탭 '이 사진처럼': 설명 카드 → 사진 올리기 → 예시 썸네일 9장) / `#ref.pick`(2단계: 축소본 + summary + 상황 8개 + 피사체 pill, sameSceneId가 있으면 맨 위 파란 테두리 '사진과 같은 곳' 카드) / `#ref.result`(3단계). 분석 결과(features·exif·축소본 dataURL·summary·sameSceneId·선택한 scene/subject)는 메모리 변수 `REF` + sessionStorage `cck.ref`에만 저장. 원본 파일·사진은 localStorage·서버 어디에도 저장하지 않고 objectURL은 사용 후 revoke. 새로고침으로 세션이 비면 #ref로 보낸다. 최근 사용(recent)에는 넣지 않는다. **'이 세팅으로 찍기' 버튼은 두지 않는다** — 기존 결과 화면(#r)으로 넘기면 match의 override(조리개 5.6 등)가 사라진다. 3단계 버튼은 '다른 사진'(#ref) / '상황 바꾸기'(#ref.pick) 둘뿐. 설정의 '사진 분석' 섹션: 분석 모드 `cck.refMode`(mock 기본 / gemini), Gemini 키 `cck.geminiKey`(폰에만 저장, 2단계 전까지 미사용). 오프라인 + gemini면 올리기 버튼 비활성. 앱은 바디 호환 렌즈 전부를 ownedLensIds로 넘긴다.
+11. **'이 사진처럼 찍기' 원칙.** AI 응답은 Features 분류값만 사용(light/dof/motion/focalFeel/subject/framing/color). 숫자(조리개·셔터·ISO)는 compute()만. 노출보정은 현재 상황(scene.ec)에서만 — 레퍼런스가 역광이라고 +1을 주지 않는다. 매핑 규칙은 docs/match.md 먼저 고치고 match.js가 따라간다. mock 파일명 비교는 경로 제외 basename·대소문자 무시. EXIF는 원본 File에서만 읽는다.
 
 ## 계산 요약 (exposure.js를 읽지 않아도 되게)
 - 조리개 = SCENES[scene].aperture[lens] (override 가능), 렌즈 f/최소~최대로 클램프.

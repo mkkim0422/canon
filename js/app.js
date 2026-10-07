@@ -1,8 +1,11 @@
 // UI. 해시 라우팅: #home · #camera(첫 실행) · #camera.settings · #lenses · #scene.<id> · #r.<scene>.<subject> · #style.<id> · #settings
-// (구분자는 점. 아티팩트 호스팅은 / 해시를 막음). 마크업만 담당. 숫자·규칙은 data.js, 계산은 exposure.js, 다이얼 문구는 dials.js.
+//   · #ref(이 사진처럼 1단계 = 홈 3번째 탭) · #ref.pick(2단계 상황·피사체) · #ref.result(3단계 결과)
+// (구분자는 점. 아티팩트 호스팅은 / 해시를 막음). 마크업만 담당. 숫자·규칙은 data.js, 계산은 exposure.js, 다이얼 문구는 dials.js,
+// 사진 분석은 exif.js/analyze.js, 매핑은 match.js(docs/match.md).
 const APP_NAME = '카메라 치트키';
 const $ = (id) => document.getElementById(id);
-const K = { camera: 'cck.camera', lens: 'cck.lens', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone' };
+const K = { camera: 'cck.camera', lens: 'cck.lens', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey' };
+const REF_KEY = 'cck.ref'; // sessionStorage. 분석 결과(features·exif·축소본 dataURL·summary·선택). 원본 사진은 어디에도 저장하지 않는다.
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -54,6 +57,9 @@ function route() {
   if (page === 'r' && byId(SCENES, a) && byId(SUBJECTS, b)) return renderResult(view, { type: 'scene', scene: a, subject: b });
   if (page === 'style' && byId(STYLES, a)) return renderResult(view, { type: 'style', id: a });
   if (page === 'settings') return renderSettings(view);
+  if (page === 'ref' && a === 'pick') return refLoad() ? renderRefPick(view) : (location.hash = 'ref');
+  if (page === 'ref' && a === 'result') { const s = refLoad(); return s && byId(SCENES, s.scene) ? renderRefResult(view) : (location.hash = s ? 'ref.pick' : 'ref'); }
+  if (page === 'ref') store.set(K.tab, 'ref');
   renderHome(view);
 }
 
@@ -152,18 +158,198 @@ function renderHome(view) {
     ${header(APP_NAME, null, { lens: true })}
     ${banner}
     ${recentCard}
-    ${segment([{ id: 'scene', label: '상황으로 찾기' }, { id: 'style', label: '원하는 사진으로 찾기' }], tab, 'tab')}
+    ${segment([{ id: 'scene', label: '상황으로 찾기' }, { id: 'style', label: '원하는 사진으로 찾기' }, { id: 'ref', label: '이 사진처럼' }], tab, 'tab', 'three')}
     ${tab === 'scene' ? `
       <div class="grid">
         ${SCENES.map((s) => `<a class="card press scene" href="#scene.${s.id}"><b>${s.label}</b><small>${s.sub}</small></a>`).join('')}
-      </div>` : `
+      </div>` : tab === 'style' ? `
       <div class="list">
         ${STYLES.map((s) => `<a class="card press style" href="#style.${s.id}">
           <span class="slot">${slotImg(s.image)}</span>
           <span class="txt"><b>${s.title}</b><small>${s.desc}</small></span>
         </a>`).join('')}
-      </div>`}`;
+      </div>` : renderRefTab()}`;
   view.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => { store.set(K.tab, b.dataset.tab); renderHome(view); }));
+  if (tab === 'ref') bindRefTab(view);
+}
+
+// ---------- 이 사진처럼 찍기 (1단계: 홈 탭 / 로딩 / 실패) ----------
+let REF = null; // 메모리 사본. sessionStorage(REF_KEY)와 같은 내용. 새로고침으로 둘 다 없으면 #ref로.
+function refLoad() {
+  if (REF) return REF;
+  try { const v = sessionStorage.getItem(REF_KEY); REF = v ? JSON.parse(v) : null; } catch (e) { REF = null; }
+  return REF && REF.features ? REF : null;
+}
+function refSave(o) { REF = o; try { sessionStorage.setItem(REF_KEY, JSON.stringify(o)); } catch (e) { /* 용량 초과 등: 메모리 사본으로만 진행 */ } }
+const refMode = () => (store.get(K.refMode, 'mock') === 'gemini' ? 'gemini' : 'mock');
+const ownedLensIds = (cam) => compatibleLenses(cam).map((l) => l.id); // 앱은 렌즈 전부를 '내 렌즈'로 본다(렌즈 2종 원칙)
+
+function renderRefTab() {
+  const offline = navigator.onLine === false && refMode() === 'gemini';
+  return `
+    <section class="card">
+      <p class="ref-lead">찍고 싶은 사진을 올리면 내 카메라·렌즈로 어떻게 찍을지 알려드려요</p>
+      <p class="ref-note">분석 후 사진은 저장되지 않아요</p>
+    </section>
+    <label class="btn press file ${offline ? 'off' : ''}">
+      사진 올리기<input type="file" accept="image/*" id="refFile" ${offline ? 'disabled' : ''}>
+    </label>
+    ${offline ? '<p class="foot center">이 기능은 인터넷이 필요해요</p>' : ''}
+    <h2 class="sec">예시로 해보기</h2>
+    <div class="thumbs" role="list">
+      ${STYLES.map((s) => `<button type="button" role="listitem" class="slot press" data-sample="${s.id}" aria-label="${esc(s.title)}">${slotImg(s.image)}</button>`).join('')}
+    </div>`;
+}
+function bindRefTab(view) {
+  const inp = $('refFile');
+  if (inp) inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) refAnalyze(view, f); });
+  view.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', async () => {
+    const st = byId(STYLES, b.dataset.sample);
+    try {
+      const res = await fetch(st.image);
+      if (!res.ok) throw new Error(res.status);
+      const blob = await res.blob();
+      refAnalyze(view, new File([blob], `${st.id}.jpg`, { type: blob.type || 'image/jpeg' }));
+    } catch (e) { renderRefError(view, '예시 사진을 불러오지 못했어요'); }
+  }));
+}
+
+// 원본 File → EXIF(원본에서) → 캔버스 축소본(긴 변 1024, dataURL) → analyzeImage → 세션 저장 → #ref.pick
+async function refAnalyze(view, file) {
+  const url = URL.createObjectURL(file);
+  try {
+    renderRefLoading(view, null);
+    const exif = await readExif(file).catch(() => null);
+    const thumb = await shrinkToDataURL(url, 1024);
+    renderRefLoading(view, thumb);
+    const features = await analyzeImage(file, refMode());
+    const cam = camera();
+    // summary·sameSceneId·피사체 기본값은 상황과 무관하므로 아무 상황으로나 한 번 돌려 받는다(숫자는 쓰지 않음).
+    const m = matchFeatures(features, SCENES[0].id, null, cam.id, lensId(), ownedLensIds(cam));
+    refSave({ features, exif, thumb, summary: m.summary, sameSceneId: m.sameSceneId, subject: m.subjectId, scene: null });
+    location.hash = 'ref.pick';
+  } catch (e) {
+    renderRefError(view, e && /2단계/.test(e.message) ? 'AI 분석은 아직 준비 중이에요. 설정에서 분석 모드를 mock으로 바꾸면 예시로 볼 수 있어요' : null);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+function shrinkToDataURL(src, maxEdge) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const k = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error('이미지를 열 수 없음'));
+    img.src = src;
+  });
+}
+function renderRefLoading(view, thumb) {
+  view.innerHTML = `
+    ${header('이 사진처럼', '#ref', { noGear: true })}
+    <section class="card">
+      <div class="slot wide">${thumb ? `<img src="${thumb}" alt="">` : ''}</div>
+      <p class="ref-lead">사진 보는 중</p>
+      <div class="skel"><span></span><span class="w60"></span></div>
+    </section>
+    <section class="card"><div class="skel"><span class="w40"></span><span></span><span class="w80"></span></div></section>`;
+}
+function renderRefError(view, msg) {
+  view.innerHTML = `
+    ${header('이 사진처럼', '#ref', { noGear: true })}
+    <section class="card">
+      <p class="warn"><b class="warn">분석에 실패했어요.</b> ${msg || '다시 시도'}</p>
+    </section>
+    <a class="btn press" href="#ref">돌아가기</a>`;
+}
+
+// ---------- 2단계: 어디서·누구를 ----------
+function refExifLine(x) {
+  if (!x) return '';
+  const parts = [x.fNumber != null && `f/${x.fNumber}`, x.exposureTime != null && fmtShutter(x.exposureTime), x.iso != null && `ISO ${x.iso}`, x.focal != null && `${Math.round(x.focal)}mm`].filter(Boolean);
+  return parts.length ? `<p class="ref-note">원본: ${parts.join(' · ')}</p>` : '';
+}
+function renderRefPick(view) {
+  const s = refLoad();
+  const same = s.sameSceneId ? byId(SCENES, s.sameSceneId) : null;
+  view.innerHTML = `
+    ${header('이 사진처럼', '#ref', { noGear: true })}
+    <section class="card ref-photo">
+      <div class="slot wide"><img src="${s.thumb}" alt=""></div>
+      <p class="ref-summary">${esc(s.summary || '분석 결과 없음')}</p>
+      ${refExifLine(s.exif)}
+    </section>
+    <h2 class="sec">지금 어디서 찍나요?</h2>
+    ${same ? `<button type="button" class="card press scene same" data-scene="${same.id}"><span class="label-accent">사진과 같은 곳</span><b>${same.label}</b><small>${same.sub}</small></button>` : ''}
+    <div class="grid">
+      ${SCENES.map((sc) => `<button type="button" class="card press scene" data-scene="${sc.id}"><b>${sc.label}</b><small>${sc.sub}</small></button>`).join('')}
+    </div>
+    <h2 class="sec">누구를 찍나요?</h2>
+    <div class="lens-row" role="radiogroup" aria-label="피사체">
+      ${SUBJECTS.map((u) => `<button type="button" role="radio" aria-checked="${u.id === s.subject}" class="lens-btn ${u.id === s.subject ? 'on' : ''}" data-subject="${u.id}">${u.label}</button>`).join('')}
+    </div>
+    <p class="foot">상황을 누르면 바로 결과로 갑니다</p>`;
+  view.querySelectorAll('[data-subject]').forEach((b) => b.addEventListener('click', () => {
+    s.subject = b.dataset.subject; refSave(s);
+    view.querySelectorAll('[data-subject]').forEach((x) => { const on = x.dataset.subject === s.subject; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
+  }));
+  view.querySelectorAll('[data-scene]').forEach((b) => b.addEventListener('click', () => { s.scene = b.dataset.scene; refSave(s); location.hash = 'ref.result'; }));
+}
+
+// ---------- 3단계: 결과 ----------
+const CHECK = {
+  ok: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>',
+  no: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f04452" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+};
+function renderRefResult(view, opts = {}) {
+  const s = refLoad();
+  const cam = camera(), lens = lensId();
+  const subject = byId(SUBJECTS, s.subject) ? s.subject : 'still';
+  const m = matchFeatures(s.features, s.scene, subject, cam.id, lens, ownedLensIds(cam));
+  const r = m.settings;
+  const lensName = (id) => { const l = byId(LENSES, id); return l ? (l.tab || l.short) : id; };
+  const editTxt = String(m.colorTips.edit || '').replace(/^색감의 절반은 보정이에요\.?\s*/, '');
+  view.innerHTML = `
+    ${header('이 사진처럼', '#ref.pick', { noGear: true })}
+    <div class="ref-head">
+      <span class="slot"><img src="${s.thumb}" alt=""></span>
+      <span class="txt"><b>${esc(m.summary || '분석 결과 없음')}</b><a class="pill press" href="#ref.pick">${r.scene.label} · ${r.subject.label}</a></span>
+    </div>
+    ${lensRow(cam, lens)}
+    <section class="card">
+      <h2>가져올 수 있는 것</h2>
+      <ul class="checks">${m.possible.map((p) => `<li>${CHECK.ok}<span><b>${esc(p.what)}</b><small>${esc(p.how)}</small></span></li>`).join('')}</ul>
+    </section>
+    ${m.impossible.length ? `
+    <section class="card">
+      <h2>지금 자리에선 안 되는 것</h2>
+      <ul class="checks">${m.impossible.map((p) => `<li>${CHECK.no}<span><b>${esc(p.what)}</b><small>${esc(p.why)}</small><small class="info">${esc(p.alt)}</small>${p.linkSceneId && byId(SCENES, p.linkSceneId) ? `<a class="mini press" href="#r.${p.linkSceneId}.${subject}">${byId(SCENES, p.linkSceneId).label} 세팅 보기 →</a>` : ''}</span></li>`).join('')}</ul>
+    </section>` : ''}
+    ${m.lensWarning ? `<p class="ref-info">이 느낌엔 ${esc(m.lensWarning.need)}${m.lensWarning.okLenses.length ? ` · 내 렌즈 중 ${m.lensWarning.okLenses.map(lensName).join(', ')}` : ''}</p>` : ''}
+    ${renderKeyCard(r)}
+    ${renderDialCard(r)}
+    ${renderRulesCard(r)}
+    ${renderTipsCard(r)}
+    <section class="card">
+      <h2>색감</h2>
+      <p class="ref-note">색감의 절반은 보정이에요</p>
+      <div class="rules">
+        <div class="rule"><span class="c">픽처스타일</span><span class="a">${esc(m.colorTips.ps || '조정 없음')}</span></div>
+        <div class="rule"><span class="c">보정 방향</span><span class="a">${esc(editTxt)}</span></div>
+      </div>
+    </section>
+    ${m.moveTip ? `<p class="why">${esc(m.moveTip)}</p>` : ''}
+    <a class="btn press" href="#ref">다른 사진</a>
+    <a class="btn press ghost" href="#ref.pick">상황 바꾸기</a>
+    <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
+  bindLensRow(view, r, (prev) => renderRefResult(view, { prev }));
+  flashChanged(view, r, opts.prev);
 }
 
 // ---------- 피사체 선택 ----------
@@ -193,18 +379,68 @@ function renderResult(view, req, opts = {}) {
     store.set(K.recent, { scene: req.scene, subject: req.subject });
     store.set(K.tab, 'scene');
   }
-  const isAv = r.mode === 'Av';
   const title = style ? style.title : r.scene.label;
   const subtitle = style ? `${r.scene.label} · ${r.subject.label}` : r.subject.label;
-  const num = (key, text) => `<b class="num" data-key="${key}">${text}</b>`;
   const recLens = style && style.lens !== lens && lensCompatible(cam, byId(LENSES, style.lens)) ? byId(LENSES, style.lens) : null;
+
+  view.innerHTML = `
+    ${header(title, back, { subtitle })}
+    ${lensRow(cam, lens)}
+    ${style ? `
+      <section class="card cond">
+        <div class="slot wide">${slotImg(style.image)}${style.image ? '' : '<small>내 사진 자리</small>'}</div>
+        ${style.image ? '<p class="caption">AI 생성 샘플 · 내 사진으로 교체 가능</p>' : ''}
+        <p><span class="label-accent">이 사진이 되는 조건</span>${style.conditions}</p>
+        <p><span class="label-warn">흔한 실패 원인</span>${style.failure}</p>
+      </section>` : ''}
+    ${renderKeyCard(r, { recLens })}
+    ${renderDialCard(r)}
+    ${renderRulesCard(r)}
+    ${renderTipsCard(r)}
+    <p class="why">${r.why}</p>
+    <a class="btn press" href="#home">다른 상황 고르기</a>
+    <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
+
+  bindLensRow(view, r, (prev) => renderResult(view, req, { prev }));
+  flashChanged(view, r, opts.prev);
+}
+
+// ----- 결과 화면 조각 (기존 결과 #r/#style 과 '이 사진처럼' #ref.result 가 공유) -----
+const numKeys = (r) => ({ aperture: r.aperture, shutter: r.shutter, iso: r.iso, ec: r.ec });
+
+// 렌즈 pill 버튼 줄. 바꾸면 rerender(prev)로 제자리 재계산 → flashChanged가 바뀐 숫자를 0.3초 강조.
+function lensRow(cam, lens) {
+  return `<div class="lens-row" role="radiogroup" aria-label="렌즈"><span class="lbl">렌즈</span>
+      ${compatibleLenses(cam).map((l) => `<button type="button" role="radio" aria-checked="${l.id === lens}" class="lens-btn ${l.id === lens ? 'on' : ''}" data-lens="${l.id}">${l.tab || l.short}</button>`).join('')}
+    </div>`;
+}
+function bindLensRow(view, r, rerender) {
+  view.querySelectorAll('.lens-row button').forEach((btn) => btn.addEventListener('click', () => {
+    if (btn.dataset.lens === lensId()) return;
+    store.set(K.lens, btn.dataset.lens);
+    const y = window.scrollY;
+    rerender(numKeys(r));
+    window.scrollTo(0, y);
+  }));
+}
+function flashChanged(view, r, prev) {
+  if (!prev) return;
+  const cur = numKeys(r);
+  const sel = Object.keys(cur).filter((k) => cur[k] !== prev[k]).map((k) => `.num[data-key="${k}"]`).join(',');
+  const changed = sel ? view.querySelectorAll(sel) : [];
+  changed.forEach((el) => el.classList.add('flash'));
+  setTimeout(() => changed.forEach((el) => el.classList.remove('flash')), 300);
+}
+
+// ① 핵심 숫자 카드. opts.recLens: 스타일의 권장 렌즈(현재 렌즈와 다를 때만)
+function renderKeyCard(r, opts = {}) {
+  const cam = r.camera, isAv = r.mode === 'Av';
+  const num = (key, text) => `<b class="num" data-key="${key}">${text}</b>`;
   const capped = r.flags.some((f) => f.type === 'isoCapped' || f.type === 'tooDark');
   const evLabel = `${r.light.label}(EV ${r.ev}${r.est ? ', 추정' : ''})`;
-  const needSetup = cam.hasCModes && !setupDone();
   const modeLabel = r.cmode || 'Av';
-
-  const context = `${cam.short} · ${r.lens.label}${r.cropNote ? ` · ${r.cropNote}` : ''}${r.adapter ? ' · <span class="muted">어댑터 필요</span>' : ''}${recLens ? ` · <span class="info">권장 렌즈 ${recLens.tab}</span>` : ''}`;
-  const keyCard = isAv ? `
+  const context = `${cam.short} · ${r.lens.label}${r.cropNote ? ` · ${r.cropNote}` : ''}${r.adapter ? ' · <span class="muted">어댑터 필요</span>' : ''}${opts.recLens ? ` · <span class="info">권장 렌즈 ${opts.recLens.tab}</span>` : ''}`;
+  return isAv ? `
     <section class="card key">
       <p class="sub">${context}</p>
       <div class="nums">
@@ -223,7 +459,12 @@ function renderResult(view, req, opts = {}) {
       </div>
       <p class="sub">이 값으로 맞추세요. ${evLabel} 기준${capped ? ` <span class="warn">· ISO ${cam.isoHard}에서도 부족</span>` : ''}. 얼굴 밝기는 ISO로 조절</p>
     </section>`;
+}
 
+// ② 다이얼 순서 + 자세히(AF·드라이브·최소 셔터)
+function renderDialCard(r) {
+  const cam = r.camera, isAv = r.mode === 'Av';
+  const needSetup = cam.hasCModes && !setupDone();
   const dial = dialSteps(r);
   if (isAv && needSetup) dial[0] += ' <span class="muted">(⚙ 등록 필요)</span>';
 
@@ -239,50 +480,27 @@ function renderResult(view, req, opts = {}) {
     `측광 ${r.metering} · WB ${r.wb.label}${r.wb.k !== '자동' ? ` (${r.wb.k})` : ''} · 픽처스타일 ${r.ps}`);
   if (r.apNotes.length) detail.push(r.apNotes.join(' '));
 
-  const rules = [...flagRules(r), ...r.adjust].map(([c, a]) => [c, fillSteps(a, r)]);
-  const lensList = compatibleLenses(cam);
-
-  view.innerHTML = `
-    ${header(title, back, { subtitle })}
-    <div class="lens-row" role="radiogroup" aria-label="렌즈"><span class="lbl">렌즈</span>
-      ${lensList.map((l) => `<button type="button" role="radio" aria-checked="${l.id === lens}" class="lens-btn ${l.id === lens ? 'on' : ''}" data-lens="${l.id}">${l.tab || l.short}</button>`).join('')}
-    </div>
-    ${style ? `
-      <section class="card cond">
-        <div class="slot wide">${slotImg(style.image)}${style.image ? '' : '<small>내 사진 자리</small>'}</div>
-        ${style.image ? '<p class="caption">AI 생성 샘플 · 내 사진으로 교체 가능</p>' : ''}
-        <p><span class="label-accent">이 사진이 되는 조건</span>${style.conditions}</p>
-        <p><span class="label-warn">흔한 실패 원인</span>${style.failure}</p>
-      </section>` : ''}
-    ${keyCard}
+  return `
     <section class="card">
       <h2>다이얼 순서</h2>
       <ol class="steps">${dial.map((d, i) => `<li><span class="n">${i + 1}</span><span>${d}</span></li>`).join('')}</ol>
       <details class="more"><summary>자세히</summary><ul>${li(detail)}</ul></details>
-    </section>
+    </section>`;
+}
+
+// ③ 현장 조정 (플래그 규칙 + 상황 규칙)
+function renderRulesCard(r) {
+  const rules = [...flagRules(r), ...r.adjust].map(([c, a]) => [c, fillSteps(a, r)]);
+  return `
     <section class="card">
       <h2>현장 조정</h2>
       <div class="rules">${rules.map(([c, a]) => `<div class="rule${c ? '' : ' full'}"><span class="c">${c}</span><span class="a">${a}</span></div>`).join('')}</div>
-    </section>
-    ${r.tips.length ? `<section class="card tips"><h2>팁</h2>${r.tips.map((t) => `<p>${t}</p>`).join('')}</section>` : ''}
-    <p class="why">${r.why}</p>
-    <a class="btn press" href="#home">다른 상황 고르기</a>
-    <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
+    </section>`;
+}
 
-  view.querySelectorAll('.lens-row button').forEach((btn) => btn.addEventListener('click', () => {
-    if (btn.dataset.lens === lensId()) return;
-    store.set(K.lens, btn.dataset.lens);
-    const y = window.scrollY;
-    renderResult(view, req, { prev: { aperture: r.aperture, shutter: r.shutter, iso: r.iso, ec: r.ec } });
-    window.scrollTo(0, y);
-  }));
-  if (opts.prev) {
-    const cur = { aperture: r.aperture, shutter: r.shutter, iso: r.iso, ec: r.ec };
-    const sel = Object.keys(cur).filter((k) => cur[k] !== opts.prev[k]).map((k) => `.num[data-key="${k}"]`).join(',');
-    const changed = sel ? view.querySelectorAll(sel) : [];
-    changed.forEach((el) => el.classList.add('flash'));
-    setTimeout(() => changed.forEach((el) => el.classList.remove('flash')), 300);
-  }
+// ④ 팁 (있을 때만)
+function renderTipsCard(r) {
+  return r.tips.length ? `<section class="card tips"><h2>팁</h2>${r.tips.map((t) => `<p>${t}</p>`).join('')}</section>` : '';
 }
 
 // ---------- 설정 ----------
@@ -333,12 +551,24 @@ function renderSettings(view) {
     <a class="card press mycam" href="#camera.settings"><span class="txt"><b>${cam.name}</b><small>${cam.verified ? '매뉴얼 검증 완료' : '검증 전'} · 누르면 변경</small></span><span class="chev">›</span></a>
     <h2 class="sec">내 렌즈</h2>
     <div class="list">${lensRadios(cam, cur)}</div>
+    <h2 class="sec">사진 분석</h2>
+    <section class="card analyze">
+      <p class="lbl">분석 모드</p>
+      ${segment([{ id: 'mock', label: 'mock' }, { id: 'gemini', label: 'gemini' }], refMode(), 'mode', 'tight')}
+      <label class="field"><span class="lbl">Gemini API 키</span><input type="password" id="geminiKey" autocomplete="off" placeholder="AIza…" value="${esc(store.get(K.geminiKey, '') || '')}"></label>
+      <p class="ref-note">키는 이 폰에만 저장돼요. 2단계 연결 전까지는 사용되지 않아요</p>
+    </section>
     <h2 class="sec">1. 공통 설정</h2>
     <div class="list">${common}</div>
     ${cmodes}
     <p class="lead small">메뉴명은 영문 매뉴얼 기준이고 괄호 안 한글은 추정입니다. 카메라에서 확인 후 알려주면 확정합니다.</p>
     <button type="button" class="btn press" id="setupDone">${setupDone() ? '등록 완료됨 (다시 누르면 해제)' : '등록 완료'}</button>`;
   bindLensRadios(view);
+  view.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+    store.set(K.refMode, b.dataset.mode);
+    view.querySelectorAll('[data-mode]').forEach((x) => { const on = x.dataset.mode === b.dataset.mode; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+  }));
+  $('geminiKey').addEventListener('change', () => { const v = $('geminiKey').value.trim(); v ? store.set(K.geminiKey, v) : store.del(K.geminiKey); });
   $('setupDone').addEventListener('click', () => { store.set(K.setup, !setupDone()); renderSettings(view); window.scrollTo(0, document.body.scrollHeight); });
 }
 
