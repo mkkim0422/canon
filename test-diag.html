@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진단 테스트</title>
+<style>
+  body { margin: 0; padding: 16px; font: 13px/1.45 -apple-system, "Malgun Gothic", sans-serif; color: #191f28; background: #fff; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 20px 0 6px; }
+  p.lead { color: #666; margin: 0 0 12px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #e5e8eb; padding: 4px 8px; vertical-align: top; text-align: left; }
+  th { background: #f2f4f6; font-weight: 600; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; display: block; }
+  .lt { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .ok { background: #22c55e; } .warn { background: #f5c518; } .bad { background: #f04452; }
+  .muted { color: #8b95a1; }
+  .sev-bad { color: #c8102e; } .sev-warn { color: #a16207; } .sev-info { color: #8b95a1; }
+  tr.sharp td { background: #f6fff8; }
+  #sum { margin-top: 10px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>'내 사진 진단' 테스트 (AI 미사용 · 오프라인)</h1>
+<p class="lead">샘플 9장 + 블러(3px)·어둡게(−40%)·밝게(+40%) 변형 27장 = 36장. 1024px 축소본에서 pixels.js → diagnose.js. 바디 eos6d2, 렌즈 ef50. 샘플엔 EXIF가 없으므로 EXIF 없는 경로.</p>
+<div id="out">실행 중…</div>
+<p id="sum"></p>
+<h2>EXIF 있는 경로 (가짜 exif 3개 × softKid 픽셀)</h2>
+<div id="out2"></div>
+<script src="js/data.js"></script>
+<script src="js/exposure.js"></script>
+<script src="js/dials.js"></script>
+<script src="js/exif.js"></script>
+<script src="js/pixels.js"></script>
+<script src="js/diagnose.js"></script>
+<script>
+const CAM = 'eos6d2', LENS = 'ef50';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const VARIANTS = [
+  { id: 'orig', label: '원본', filter: 'none' },
+  { id: 'blur', label: '블러 3px', filter: 'blur(3px)' },
+  { id: 'dark', label: '어둡게 −40%', filter: 'brightness(0.6)' },
+  { id: 'bright', label: '밝게 +40%', filter: 'brightness(1.4)' },
+];
+const lightDot = (v) => `<span class="lt ${v}" title="${v}"></span>`;
+const lightsCell = (l) => ['blur', 'face', 'highlights', 'noise', 'mode'].map((k) => `${lightDot(l[k])}${k}`).join('<br>');
+const findingsCell = (fs) => fs.map((f) => `<div class="sev-${f.sev}">${esc(f.title)}</div>`).join('');
+
+function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+// 긴 변 1024 축소 + CSS 필터 변형 → ImageData. 블러는 가장자리 번짐을 피하려고 변형 전에 그린 뒤 다시 그린다.
+function toImageData(img, filter) {
+  const k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+  const base = document.createElement('canvas'); base.width = w; base.height = h;
+  base.getContext('2d').drawImage(img, 0, 0, w, h);
+  if (filter === 'none') return { data: base.getContext('2d').getImageData(0, 0, w, h), canvas: base };
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'); ctx.filter = filter; ctx.drawImage(base, 0, 0);
+  return { data: ctx.getImageData(0, 0, w, h), canvas: c };
+}
+
+(async () => {
+  const rows = [], S = { orig: [], blur: [], dark: [], bright: [] }, times = [];
+  for (const st of STYLES) {
+    const img = await loadImg(st.image);
+    for (const v of VARIANTS) {
+      const { data, canvas } = toImageData(img, v.filter);
+      const faces = await detectFaces(canvas);
+      const t0 = performance.now();
+      const px = analyzePixels(data, faces);
+      const ms = performance.now() - t0;
+      times.push(ms);
+      S[v.id].push(px.sharpness);
+      const d = diagnose(null, px, CAM, LENS);
+      rows.push(`<tr class="${v.id === 'orig' ? 'sharp' : ''}">
+        <td><img src="${canvas.toDataURL('image/jpeg', 0.6)}" alt=""><div class="muted">${st.id}</div></td>
+        <td>${v.label}</td>
+        <td class="num">${px.sharpness.toFixed(1)}</td>
+        <td class="num">${Math.round(px.faceLuma * 100)}%${px.faceEstimate ? '<span class="muted"> 추정</span>' : ''}</td>
+        <td class="num">${(px.clipping.highlights * 100).toFixed(1)}%</td>
+        <td class="num">${(px.clipping.shadows * 100).toFixed(1)}%</td>
+        <td class="num">${ms.toFixed(0)}ms</td>
+        <td>${lightsCell(d.lights)}</td>
+        <td>${findingsCell(d.findings)}</td>
+      </tr>`);
+    }
+  }
+  document.getElementById('out').innerHTML = `<table>
+    <thead><tr><th>사진</th><th>변형</th><th>sharpness</th><th>얼굴 밝기</th><th>하이라이트</th><th>섀도</th><th>pixels 시간</th><th>lights</th><th>findings</th></tr></thead>
+    <tbody>${rows.join('')}</tbody></table>`;
+  const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const mn = (a) => Math.min(...a), mx = (a) => Math.max(...a);
+  const gapMid = (mn(S.orig) + mx(S.blur)) / 2, medMid = (med(S.orig) + med(S.blur)) / 2;
+  const misOrig = S.orig.filter((x) => x < DIAG.S_LOW).length, misBlur = S.blur.filter((x) => x >= DIAG.S_LOW).length;
+  document.getElementById('sum').innerHTML = [
+    `sharpness 원본: 최소 ${mn(S.orig).toFixed(1)} · 중앙값 ${med(S.orig).toFixed(1)} · 최대 ${mx(S.orig).toFixed(1)}`,
+    `sharpness 블러: 최소 ${mn(S.blur).toFixed(1)} · 중앙값 ${med(S.blur).toFixed(1)} · 최대 ${mx(S.blur).toFixed(1)}`,
+    `어둡게 최소 ${mn(S.dark).toFixed(1)} · 밝게 최소 ${mn(S.bright).toFixed(1)} (선명 그룹에 머물러야 함)`,
+    `간격 중간값(원본 최소+블러 최대)/2 = ${gapMid.toFixed(1)} · 중앙값 중간 = ${medMid.toFixed(1)} · 현재 S_LOW = ${DIAG.S_LOW} → 원본 오판 ${misOrig}/9, 블러 오판 ${misBlur}/9`,
+    `pixels 처리 시간: 평균 ${(times.reduce((a, b) => a + b, 0) / times.length).toFixed(0)}ms · 최대 ${mx(times).toFixed(0)}ms (36장, FaceDetector ${window.FaceDetector ? '있음' : '없음'})`,
+  ].join('<br>');
+
+  // EXIF 있는 경로: 가짜 exif 3개 × softKid 원본 픽셀
+  const base = toImageData(await loadImg(byId(STYLES, 'softKid').image), 'none').data;
+  const px = analyzePixels(base, await detectFaces(null));
+  const FAKES = [
+    { label: '맑음 1/2000 f/3.2 ISO100 Av', exif: { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF50mm f/1.8 STM', fNumber: 3.2, exposureTime: 1 / 2000, iso: 100, ec: 0, focal: 50, program: 'Av', flash: false } },
+    { label: '실내 1/60 f/1.8 ISO3200 Av', exif: { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF50mm f/1.8 STM', fNumber: 1.8, exposureTime: 1 / 60, iso: 3200, ec: 0, focal: 50, program: 'Av', flash: false } },
+    { label: '오토 1/125 f/5.6 ISO800 P', exif: { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF24-105mm f/4L IS USM', fNumber: 5.6, exposureTime: 1 / 125, iso: 800, ec: 0, focal: 70, program: 'P', flash: false } },
+  ];
+  document.getElementById('out2').innerHTML = `<table>
+    <thead><tr><th>가짜 EXIF</th><th>exifSummary</th><th>EV100</th><th>sceneGuess</th><th>subject</th><th>next (compute)</th><th>lights</th><th>findings</th></tr></thead>
+    <tbody>${FAKES.map((f) => {
+      const d = diagnose(f.exif, px, CAM, LENS);
+      const n = d.next;
+      return `<tr><td>${esc(f.label)}</td><td>${esc(d.exifSummary)}</td><td class="num">${d.ev100 == null ? '-' : d.ev100.toFixed(1)}</td><td>${d.sceneGuess || '<span class="muted">null</span>'}</td><td>${d.subjectGuess}</td>
+        <td>${n ? `f/${n.aperture} · EC ${fmtEC(n.ec)} · ${n.mode === 'Av' ? (n.cmode || 'Av') : 'M'} · ${fmtShutter(n.shutter)} · ISO ${n.iso} <span class="muted">(${d.cameraId}/${d.lensId})</span>` : '<span class="muted">null</span>'}</td>
+        <td>${lightsCell(d.lights)}</td><td>${d.findings.map((x) => `<div class="sev-${x.sev}"><b>${esc(x.title)}</b> — ${esc(x.detail)} → ${esc(x.fix)}</div>`).join('')}</td></tr>`;
+    }).join('')}</tbody></table>`;
+})();
+</script>
+</body>
+</html>

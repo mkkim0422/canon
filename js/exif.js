@@ -1,10 +1,13 @@
 // JPEG EXIF 최소 파서. 외부 라이브러리 없음. 반드시 원본 File에서 읽는다(축소본·캔버스 출력에는 EXIF가 없음).
-// readExif(file) → Promise<{ make, model, lens, fNumber, exposureTime, iso, ec, focal, program } | null>
+// readExif(file) → Promise<{ make, model, lens, fNumber, exposureTime, iso, ec, focal, program, flash, meteringMode, exposureMode } | null>
 // JPEG가 아니거나(PNG·WebP 등) Exif APP1이 없으면 null. 태그를 못 찾은 필드는 null.
+// 단위: exposureTime 초(1/500 → 0.002), fNumber 소수 1자리, focal mm 숫자, ec는 SRATIONAL(부호 있는 분수)을 소수 2자리로(-2/3 → -0.67, 부호 유지),
+// flash는 Flash 태그 bit0(발광 여부) boolean, meteringMode·exposureMode는 EXIF 코드 그대로(숫자). 캐논 MakerNote는 읽지 않는다.
 
 const EXIF_TAGS = {
   0x010F: 'make', 0x0110: 'model', 0x8769: 'exifIfd',
   0x829A: 'exposureTime', 0x829D: 'fNumber', 0x8827: 'iso', 0x9204: 'ec', 0x920A: 'focal', 0x8822: 'program', 0xA434: 'lens',
+  0x9209: 'flash', 0x9207: 'meteringMode', 0xA402: 'exposureMode',
 };
 const EXIF_PROGRAM = { 1: 'M', 2: 'P', 3: 'Av', 4: 'Tv', 5: 'Creative', 6: 'Action', 7: 'Portrait', 8: 'Landscape' };
 
@@ -46,7 +49,7 @@ function parseTiff(buf, tiffStart, end) {
   if (!le && bo !== 0x4D4D) return null;
   const u16 = (p) => v.getUint16(p, le), u32 = (p) => v.getUint32(p, le), s32 = (p) => v.getInt32(p, le);
   if (u16(tiffStart + 2) !== 42) return null;
-  const out = { make: null, model: null, lens: null, fNumber: null, exposureTime: null, iso: null, ec: null, focal: null, program: null };
+  const out = { make: null, model: null, lens: null, fNumber: null, exposureTime: null, iso: null, ec: null, focal: null, program: null, flash: null, meteringMode: null, exposureMode: null };
   const ascii = (p, n) => { let s = ''; for (let i = 0; i < n; i++) { const c = v.getUint8(p + i); if (!c) break; s += String.fromCharCode(c); } return s.trim(); };
 
   function readIfd(ifdOff) {
@@ -70,8 +73,9 @@ function parseTiff(buf, tiffStart, end) {
       else if (type === 10) { const d = s32(p + 4); val = d ? s32(p) / d : null; }
       if (name === 'exifIfd') { if (typeof val === 'number') readIfd(tiffStart + val); continue; }
       if (name === 'program') val = EXIF_PROGRAM[val] || (val == null ? null : 'other');
-      if (name === 'ec' && typeof val === 'number') val = Math.round(val * 10) / 10;
+      if (name === 'ec' && typeof val === 'number') val = Math.round(val * 100) / 100; // SRATIONAL: -2/3 → -0.67
       if (name === 'fNumber' && typeof val === 'number') val = Math.round(val * 10) / 10;
+      if (name === 'flash' && typeof val === 'number') val = (val & 1) === 1; // bit0 = 발광
       if (out[name] == null) out[name] = val;
     }
   }
