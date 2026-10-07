@@ -8,20 +8,36 @@
   body { margin: 0; padding: 16px; font: 13px/1.45 -apple-system, "Malgun Gothic", sans-serif; color: #191f28; background: #fff; }
   h1 { font-size: 18px; margin: 0 0 4px; }
   p.lead { color: #666; margin: 0 0 12px; }
+  .bar { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: #e5e8eb; border-radius: 10px; padding: 3px; }
+  .seg button { font: inherit; border: 0; background: transparent; color: #8b95a1; padding: 5px 14px; border-radius: 8px; cursor: pointer; }
+  .seg button.on { background: #fff; color: #191f28; font-weight: 600; }
+  input[type=password] { font: inherit; padding: 5px 8px; border: 1px solid #e5e8eb; border-radius: 8px; width: 220px; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid #e5e8eb; padding: 6px 8px; vertical-align: top; text-align: left; }
   th { background: #f2f4f6; font-weight: 600; white-space: nowrap; }
   td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.diff { background: #fff3b0; }
   img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; display: block; }
   .ok { color: #1a7f37; } .warn { color: #c8102e; } .muted { color: #8b95a1; }
   details { margin-top: 2px; } summary { cursor: pointer; color: #3182f6; }
   ul { margin: 2px 0 0; padding-left: 16px; }
+  .feat { font-size: 12px; }
+  .feat div + div { margin-top: 1px; }
+  .feat .k { color: #8b95a1; }
+  #sum { margin-top: 12px; font-weight: 600; }
 </style>
 </head>
 <body>
-<h1>'이 사진처럼 찍기' 매핑 테스트 (mock)</h1>
-<p class="lead" id="lead">바디 6D2 · 현재 렌즈 EF 50mm f/1.8 · 내 렌즈 [24-105, 50mm] 고정. 샘플 9장을 mock 분석 → 현재 상황 3가지로 matchFeatures.</p>
+<h1>'이 사진처럼 찍기' 매핑 테스트</h1>
+<p class="lead" id="lead">바디 6D2 · 현재 렌즈 EF 50mm f/1.8 · 내 렌즈 [24-105, 50mm] 고정. 샘플 9장을 분석 → 현재 상황 3가지로 matchFeatures.</p>
+<div class="bar">
+  <span class="seg" id="modeSeg"><button type="button" data-mode="mock" class="on">mock</button><button type="button" data-mode="gemini">gemini</button></span>
+  <label>API 키 <input type="password" id="key" placeholder="비우면 localStorage cck.geminiKey 사용"></label>
+  <span class="muted" id="status"></span>
+</div>
 <div id="out">실행 중…</div>
+<p id="sum"></p>
 <script src="js/data.js"></script>
 <script src="js/exposure.js"></script>
 <script src="js/dials.js"></script>
@@ -30,52 +46,116 @@
 <script src="js/analyze.js"></script>
 <script src="js/match.js"></script>
 <script>
-(async function run() {
-  const CAM = 'eos6d2', LENS = 'ef50', OWNED = ['ef24105', 'ef50'];
-  const CURRENT = ['outdoorSunny', 'indoorEvening', 'nightPortrait'];
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const CAM = 'eos6d2', LENS = 'ef50', OWNED = ['ef24105', 'ef50'];
+const CURRENT = ['outdoorSunny', 'indoorEvening', 'nightPortrait'];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const FIELDS = ['light', 'lightConfidence', 'artificialLight', 'rimLight', 'dof', 'motion', 'focalFeel', 'subject', 'framing', 'color.saturation', 'color.warmth', 'color.contrast'];
+const get = (f, k) => k.split('.').reduce((o, p) => (o == null ? o : o[p]), f);
+let files = null, exifs = null, mockFeats = null;
+
+async function loadFiles() {
+  if (files) return;
   // 실제 img/{styleId}.jpg를 fetch → Blob → File(name = '{styleId}.jpg')로 감싸 analyzeImage에 넘긴다 (file:// 에서는 fetch가 막히므로 로컬 서버로 열 것).
-  const files = await Promise.all(STYLES.map(async (s) => {
+  files = await Promise.all(STYLES.map(async (s) => {
     const res = await fetch(s.image);
     if (!res.ok) throw new Error(s.image + ' ' + res.status);
-    const blob = await res.blob();
-    return new File([blob], s.id + '.jpg', { type: 'image/jpeg' });
+    return new File([await res.blob()], s.id + '.jpg', { type: 'image/jpeg' });
   }));
-  const feats = await Promise.all(files.map((f) => analyzeImage(f, 'mock')));
-  const exifs = await Promise.all(files.map((f) => readExif(f))); // 샘플에 EXIF 없으면 null로 통과
+  exifs = await Promise.all(files.map((f) => readExif(f))); // 샘플에 EXIF 없으면 null로 통과
+  mockFeats = await Promise.all(files.map((f) => analyzeImage(f, 'mock')));
+}
+
+// 한 샘플의 Features를 matchFeatures로 돌린 3칸
+function matchCells(f) {
+  return CURRENT.map((sc) => {
+    const m = matchFeatures(f, sc, null, CAM, LENS, OWNED);
+    const r = m.settings;
+    const mode = r.mode === 'Av' ? (r.cmode || 'Av') : 'M';
+    return `<td>
+      <div><b>${m.possible.length}</b> 가능 / <b class="${m.impossible.length ? 'warn' : 'ok'}">${m.impossible.length}</b> 불가</div>
+      <div class="num">f/${r.aperture} · EC ${fmtEC(r.ec)} · ${mode} · ${fmtShutter(r.shutter)} · ISO ${r.iso}</div>
+      <div class="muted">피사체 ${m.subjectId}${m.moveTip ? ' · 이동: ' + esc(m.moveTip) : ''}</div>
+      <details><summary>상세</summary>
+        <ul>${m.possible.map((p) => `<li class="ok">${esc(p.what)} — ${esc(p.how)}</li>`).join('')}
+        ${m.impossible.map((p) => `<li class="warn">${esc(p.what)} — ${esc(p.why)} → ${esc(p.alt)}${p.linkSceneId ? ' [' + p.linkSceneId + ']' : ''}</li>`).join('')}</ul>
+        <div class="muted">${esc(m.colorTips.ps || '픽처스타일 조정 없음')} / ${esc(m.colorTips.edit)}</div>
+      </details></td>`;
+  }).join('');
+}
+const featList = (f, other) => `<div class="feat">${FIELDS.map((k) => {
+  const v = get(f, k), o = other ? get(other, k) : undefined;
+  const diff = other && String(v) !== String(o);
+  return `<div${diff ? ' class="warn"' : ''}><span class="k">${k.replace('color.', '')}</span> ${esc(v)}</div>`;
+}).join('')}<div class="muted">${esc((f.notes || []).join(' / '))}</div></div>`;
+
+// mode 'mock': mock 열만. 'gemini': mock 열과 gemini 열(또는 오류)을 나란히, 값이 다른 칸은 노란 배경.
+function render(mode, gemFeats, gemErrs) {
+  let mismatch = 0;
   const rows = STYLES.map((st, i) => {
-    const f = feats[i];
-    const cells = CURRENT.map((sc) => {
-      const m = matchFeatures(f, sc, null, CAM, LENS, OWNED);
-      const r = m.settings;
-      const mode = r.mode === 'Av' ? (r.cmode || 'Av') : 'M';
-      return `<td>
-        <div><b>${m.possible.length}</b> 가능 / <b class="${m.impossible.length ? 'warn' : 'ok'}">${m.impossible.length}</b> 불가</div>
-        <div class="num">f/${r.aperture} · EC ${fmtEC(r.ec)} · ${mode} · ${fmtShutter(r.shutter)} · ISO ${r.iso}</div>
-        <div class="muted">피사체 ${m.subjectId}${m.moveTip ? ' · 이동: ' + esc(m.moveTip) : ''}</div>
-        <details><summary>상세</summary>
-          <ul>${m.possible.map((p) => `<li class="ok">${esc(p.what)} — ${esc(p.how)}</li>`).join('')}
-          ${m.impossible.map((p) => `<li class="warn">${esc(p.what)} — ${esc(p.why)} → ${esc(p.alt)}${p.linkSceneId ? ' [' + p.linkSceneId + ']' : ''}</li>`).join('')}</ul>
-          <div class="muted">${esc(m.colorTips.ps || '픽처스타일 조정 없음')} / ${esc(m.colorTips.edit)}</div>
-        </details></td>`;
-    }).join('');
+    const f = mockFeats[i], g = gemFeats ? gemFeats[i] : null, err = gemErrs ? gemErrs[i] : null;
     const m0 = matchFeatures(f, CURRENT[0], null, CAM, LENS, OWNED);
-    const lw = m0.lensWarning ? `<span class="warn">${esc(m0.lensWarning.need)}</span><br><span class="muted">가능 렌즈: ${m0.lensWarning.okLenses.join(', ') || '없음'}</span>` : '<span class="ok">없음</span>';
-    return `<tr>
-      <td><img src="${st.image}" alt=""><div class="muted">${st.id}</div><div class="muted">${Math.round(files[i].size / 1024)}KB · EXIF ${exifs[i] ? esc(JSON.stringify(exifs[i])) : 'null'}</div></td>
-      <td>${esc(m0.summary)}<div class="muted">${esc(f.notes.join(' / '))}</div></td>
-      <td class="num">${m0.sameSceneId || '<span class="muted">null</span>'}</td>
-      ${cells}
-      <td>${lw}</td>
+    const g0 = g ? matchFeatures(g, CURRENT[0], null, CAM, LENS, OWNED) : null;
+    const diffFields = g ? FIELDS.filter((k) => String(get(f, k)) !== String(get(g, k))) : [];
+    if (g && diffFields.length) mismatch++;
+    const lw = (m) => m.lensWarning ? `<span class="warn">${esc(m.lensWarning.need)}</span><br><span class="muted">가능 렌즈: ${m.lensWarning.okLenses.join(', ') || '없음'}</span>` : '<span class="ok">없음</span>';
+    const photo = `<td rowspan="${mode === 'gemini' ? 2 : 1}"><img src="${st.image}" alt=""><div class="muted">${st.id}</div><div class="muted">${Math.round(files[i].size / 1024)}KB · EXIF ${exifs[i] ? esc(JSON.stringify(exifs[i])) : 'null'}</div></td>`;
+    const line = (label, feat, other, m, cls) => `<tr class="${cls}">
+      <td class="muted">${label}</td>
+      <td class="${other && diffFields.length ? 'diff' : ''}">${featList(feat, other)}</td>
+      <td class="${other && m0.summary !== m.summary ? 'diff' : ''}">${esc(m.summary)}</td>
+      <td class="num ${other && m0.sameSceneId !== m.sameSceneId ? 'diff' : ''}">${m.sameSceneId || '<span class="muted">null</span>'}</td>
+      ${matchCells(feat)}
+      <td>${lw(m)}</td>
     </tr>`;
+    let html = line('mock', f, null, m0, '').replace('<tr class="">', '<tr>' + photo);
+    if (mode === 'gemini') {
+      if (g) html += line('gemini', g, f, g0, '');
+      else html += `<tr><td class="muted">gemini</td><td colspan="${4 + CURRENT.length}" class="warn">${esc(err || '미실행')}</td></tr>`;
+    }
+    return html;
   });
   document.getElementById('out').innerHTML = `<table>
-    <thead><tr><th>사진</th><th>summary</th><th>sameSceneId</th>${CURRENT.map((c) => `<th>현재: ${byId(SCENES, c).label}</th>`).join('')}<th>lensWarning</th></tr></thead>
+    <thead><tr><th>사진</th><th>모드</th><th>Features</th><th>summary</th><th>sameSceneId</th>${CURRENT.map((c) => `<th>현재: ${byId(SCENES, c).label}</th>`).join('')}<th>lensWarning</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table>`;
+  const ok = gemFeats ? gemFeats.filter(Boolean).length : 0;
+  document.getElementById('sum').textContent = mode === 'gemini'
+    ? `불일치 ${mismatch}/${STYLES.length} (gemini 성공 ${ok}/${STYLES.length}${ok < STYLES.length ? ', 실패는 불일치에 포함하지 않음' : ''}) · 노란 칸 = mock과 다른 값`
+    : `mock 모드 · ${STYLES.length}장`;
+}
+
+// ?key=<API키>&gemini=1 : 자동 실행(confirm 생략). 스크린샷·CI용. 키는 URL에만 있고 저장하지 않는다.
+const Q = new URLSearchParams(location.search);
+async function runGemini(auto) {
+  if (!auto && !confirm(`${STYLES.length}장을 실제로 분석합니다(호출 ${STYLES.length}회). 계속할까요?`)) return false;
+  const key = document.getElementById('key').value.trim();
+  const status = document.getElementById('status');
+  const feats = [], errs = [];
+  const t0 = Date.now();
+  for (let i = 0; i < files.length; i++) {
+    status.textContent = `gemini ${i + 1}/${files.length} 분석 중…`;
+    try { feats[i] = await analyzeImage(files[i], 'gemini', key ? { key } : {}); errs[i] = null; }
+    catch (e) { feats[i] = null; errs[i] = e && e.message ? e.message : String(e); }
+    render('gemini', feats, errs);
+  }
+  status.textContent = `gemini 완료 · ${((Date.now() - t0) / 1000).toFixed(1)}초`;
+  return true;
+}
+
+(async function main() {
+  if (Q.get('key')) document.getElementById('key').value = Q.get('key');
+  await loadFiles();
+  render('mock');
+  if (Q.get('gemini') === '1') { document.querySelectorAll('#modeSeg button').forEach((x) => x.classList.toggle('on', x.dataset.mode === 'gemini')); await runGemini(true); }
+  document.querySelectorAll('#modeSeg button').forEach((b) => b.addEventListener('click', async () => {
+    document.querySelectorAll('#modeSeg button').forEach((x) => x.classList.toggle('on', x === b));
+    document.getElementById('status').textContent = '';
+    if (b.dataset.mode === 'mock') return render('mock');
+    const ran = await runGemini();
+    if (!ran) { document.querySelectorAll('#modeSeg button').forEach((x) => x.classList.toggle('on', x.dataset.mode === 'mock')); render('mock'); }
+  }));
   // 콘솔 검증: 숫자 필드가 features에 섞여도 버려지는지
   const junk = validateFeatures({ light: 'sunny', fNumber: 1.8, iso: 3200, dof: 'bogus', color: { warmth: 'warm' } });
   console.assert(!('fNumber' in junk) && junk.dof === 'medium' && junk.light === 'sunny', 'validateFeatures 실패');
-  try { await analyzeImage(files[0], 'gemini'); } catch (e) { console.log('gemini 모드:', e.message); }
 })();
 </script>
 </body>

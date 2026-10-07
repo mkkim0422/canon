@@ -41,11 +41,12 @@
 - `js/exposure.js` — `compute(camera, scene, subject, lens, override)` 하나 + 마운트 호환(`lensCompatible`, `compatibleLenses`) + 바디별 표준값 표(`tablesFor`). 로직 변경은 여기만. 문구는 만들지 않는다. override에 `apRule: 'portrait' | 'wideOpen'`(상황 기본 조리개 / 렌즈 최대 개방)을 받으며 `aperture`가 있으면 그것이 우선 — match.js가 쓴다.
 - `js/dials.js` — `dialSteps(r)`. family별 다이얼 조작 문구 템플릿(Av/M). 문구 수정은 여기만.
 - `js/exif.js` — JPEG EXIF 최소 파서 `readExif(file)`. 원본 File에서만 읽는다(축소본엔 EXIF 없음). PNG·WebP·태그 없음 → null.
-- `js/analyze.js` — `analyzeImage(file, mode)`. mock은 파일명(basename, 대소문자 무시)으로 MOCK_FEATURES를 돌려주고 0.8초 지연. gemini는 2단계 미구현(에러). `validateFeatures()`가 허용값 밖을 치환하고 숫자 필드를 버린다.
+- `js/analyze.js` — `analyzeImage(file, mode, opts)`. mock은 파일명(basename, 대소문자 무시)으로 MOCK_FEATURES를 돌려주고 0.8초 지연. gemini는 **generateContent REST 직접 호출**: 모델은 상수 `GEMINI_MODEL` 하나(설정에 노출 금지), 프롬프트는 상수 `GEMINI_PROMPT`(영문, Features 스키마와 enum 정의, "숫자·카메라 설정 금지"), `generationConfig.responseSchema`에 Features 스키마, 1024px·JPEG 0.85 축소본만 전송(원본 금지), 20초 AbortController, 키는 localStorage `cck.geminiKey`(opts.key로 대체 가능). 오류 문구 고정: 400/401/403 'API 키를 확인해 주세요' · 429 '요청이 많아요. 잠시 후 다시' · 차단(finishReason SAFETY 등, promptFeedback.blockReason) '이 사진은 분석할 수 없어요. 다른 사진으로' · 파싱 실패 '응답 형식 오류' · 그 외 '분석 서버 오류'. 응답은 반드시 `validateFeatures()`를 거친다(허용값 밖 치환, 숫자 필드 제거). **이미지·응답을 localStorage·콘솔에 남기지 않는다**(`GEMINI_DEBUG`는 커밋 시 false).
+- `docs/release-notes.md` — 출시 전 필수 항목. **스토어 출시 전 API 키를 중계 서버(Cloudflare Worker 등)로 옮길 것.** 사용량 제한·구독 검증도 중계에서.
 - `js/mock-features.js` — img/ 샘플 9장의 Features. STYLES와 모순되면 STYLES 우선.
 - `js/match.js` — `matchFeatures(features, currentSceneId, currentSubjectId, cameraId, lensId, ownedLensIds)`. docs/match.md의 구현.
 - `docs/match.md` — '이 사진처럼 찍기' 매핑 규칙 명세. **규칙 추가·수정은 이 문서 먼저.**
-- `test.html` — 샘플 9장 × 현재 상황 3가지 mock 매핑 표. img/를 fetch하므로 로컬 서버로 열 것(`python -m http.server 8000`; file://에서는 fetch가 막힘). (화면 연결은 다음 세션, app.js 미변경)
+- `test.html` — 샘플 9장 × 현재 상황 3가지 매핑 표. 상단 pill로 mock / gemini(confirm 후 실제 호출 9회, mock 행과 gemini 행을 나란히, 다른 칸 노란 배경, 맨 아래 '불일치 n/9'). img/를 fetch하므로 로컬 서버로 열 것(`python -m http.server 8000`; file://에서는 fetch가 막힘). (화면 연결은 다음 세션, app.js 미변경)
 - `js/app.js` — 해시 라우팅과 렌더. 로직 없음. 결과 화면 조각 함수 `renderKeyCard(r, {recLens})` / `renderDialCard(r)` / `renderRulesCard(r)` / `renderTipsCard(r)` + 렌즈 줄 `lensRow(cam, lens)` / `bindLensRow(view, r, rerender)` / `flashChanged(view, r, prev)`를 기존 결과(#r·#style)와 '이 사진처럼'(#ref.result)이 공유한다. 카드 마크업을 고칠 때는 이 함수만 고친다.
 - `index.html` / `artifact.html` — 스크립트 로드 순서: data → exposure → dials → exif → mock-features → analyze → match → app. 새 js 파일은 두 파일 모두에 추가.
 - `css/style.css` — 테마 변수, 다크모드 자동.
@@ -73,7 +74,7 @@
    9) 이모지·외부 아이콘 금지. 꼭 필요하면 인라인 SVG 선 아이콘 20px(stroke 1.5). 현재는 뒤로·설정만.
    10) 터치 피드백은 배경이 살짝 어두워지는 transition .15s만. 렌즈 토글의 0.3초 숫자 강조 외 애니메이션 없음.
    하이라이트 톤 우선은 권하지 않는다(최저 ISO 200이 되어 야외 맑음이 1/4000을 넘김).
-10. **'이 사진처럼 찍기' 화면.** 라우트 3개: `#ref`(1단계 = 홈 3번째 탭 '이 사진처럼': 설명 카드 → 사진 올리기 → 예시 썸네일 9장) / `#ref.pick`(2단계: 축소본 + summary + 상황 8개 + 피사체 pill, sameSceneId가 있으면 맨 위 파란 테두리 '사진과 같은 곳' 카드) / `#ref.result`(3단계). 분석 결과(features·exif·축소본 dataURL·summary·sameSceneId·선택한 scene/subject)는 메모리 변수 `REF` + sessionStorage `cck.ref`에만 저장. 원본 파일·사진은 localStorage·서버 어디에도 저장하지 않고 objectURL은 사용 후 revoke. 새로고침으로 세션이 비면 #ref로 보낸다. 최근 사용(recent)에는 넣지 않는다. **'이 세팅으로 찍기' 버튼은 두지 않는다** — 기존 결과 화면(#r)으로 넘기면 match의 override(조리개 5.6 등)가 사라진다. 3단계 버튼은 '다른 사진'(#ref) / '상황 바꾸기'(#ref.pick) 둘뿐. 설정의 '사진 분석' 섹션: 분석 모드 `cck.refMode`(mock 기본 / gemini), Gemini 키 `cck.geminiKey`(폰에만 저장, 2단계 전까지 미사용). 오프라인 + gemini면 올리기 버튼 비활성. 앱은 바디 호환 렌즈 전부를 ownedLensIds로 넘긴다.
+10. **'이 사진처럼 찍기' 화면.** 라우트 3개: `#ref`(1단계 = 홈 3번째 탭 '이 사진처럼': 설명 카드 → 사진 올리기 → 예시 썸네일 9장) / `#ref.pick`(2단계: 축소본 + summary + 상황 8개 + 피사체 pill, sameSceneId가 있으면 맨 위 파란 테두리 '사진과 같은 곳' 카드) / `#ref.result`(3단계). 분석 결과(features·exif·축소본 dataURL·summary·sameSceneId·선택한 scene/subject)는 메모리 변수 `REF` + sessionStorage `cck.ref`에만 저장. 원본 파일·사진은 localStorage·서버 어디에도 저장하지 않고 objectURL은 사용 후 revoke. 새로고침으로 세션이 비면 #ref로 보낸다. 최근 사용(recent)에는 넣지 않는다. **'이 세팅으로 찍기' 버튼은 두지 않는다** — 기존 결과 화면(#r)으로 넘기면 match의 override(조리개 5.6 등)가 사라진다. 3단계 버튼은 '다른 사진'(#ref) / '상황 바꾸기'(#ref.pick) 둘뿐. 설정의 '사진 분석' 섹션: 분석 모드 `cck.refMode`(mock 기본 / gemini), Gemini 키 `cck.geminiKey`(폰에만 저장) + '연결 테스트' 버튼(img/softKid.jpg 한 장 호출, 성공/실패·소요 시간만 표시, 키 없으면 비활성). 오프라인 + gemini면 올리기 버튼 비활성. 앱은 바디 호환 렌즈 전부를 ownedLensIds로 넘긴다.
 11. **'이 사진처럼 찍기' 원칙.** AI 응답은 Features 분류값만 사용(light/dof/motion/focalFeel/subject/framing/color). 숫자(조리개·셔터·ISO)는 compute()만. 노출보정은 현재 상황(scene.ec)에서만 — 레퍼런스가 역광이라고 +1을 주지 않는다. 매핑 규칙은 docs/match.md 먼저 고치고 match.js가 따라간다. mock 파일명 비교는 경로 제외 basename·대소문자 무시. EXIF는 원본 File에서만 읽는다.
 
 ## 계산 요약 (exposure.js를 읽지 않아도 되게)

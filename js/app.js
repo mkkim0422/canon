@@ -555,8 +555,10 @@ function renderSettings(view) {
     <section class="card analyze">
       <p class="lbl">분석 모드</p>
       ${segment([{ id: 'mock', label: 'mock' }, { id: 'gemini', label: 'gemini' }], refMode(), 'mode', 'tight')}
-      <label class="field"><span class="lbl">Gemini API 키</span><input type="password" id="geminiKey" autocomplete="off" placeholder="AIza…" value="${esc(store.get(K.geminiKey, '') || '')}"></label>
-      <p class="ref-note">키는 이 폰에만 저장돼요. 2단계 연결 전까지는 사용되지 않아요</p>
+      <label class="field"><span class="lbl">Gemini API 키</span>
+        <span class="row"><input type="password" id="geminiKey" autocomplete="off" placeholder="AIza…" value="${esc(store.get(K.geminiKey, '') || '')}"><button type="button" class="lens-btn on" id="geminiTest" ${store.get(K.geminiKey, '') ? '' : 'disabled'}>연결 테스트</button></span>
+      </label>
+      <p class="ref-note" id="geminiTestOut">키는 이 폰에만 저장돼요. 분석 모드가 gemini일 때만 사용돼요</p>
     </section>
     <h2 class="sec">1. 공통 설정</h2>
     <div class="list">${common}</div>
@@ -568,7 +570,25 @@ function renderSettings(view) {
     store.set(K.refMode, b.dataset.mode);
     view.querySelectorAll('[data-mode]').forEach((x) => { const on = x.dataset.mode === b.dataset.mode; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
   }));
-  $('geminiKey').addEventListener('change', () => { const v = $('geminiKey').value.trim(); v ? store.set(K.geminiKey, v) : store.del(K.geminiKey); });
+  const saveKey = () => { const v = $('geminiKey').value.trim(); v ? store.set(K.geminiKey, v) : store.del(K.geminiKey); $('geminiTest').disabled = !v; };
+  $('geminiKey').addEventListener('input', saveKey);
+  $('geminiKey').addEventListener('change', saveKey);
+  // 연결 테스트: img/softKid.jpg 한 장으로 gemini 호출. 성공/실패와 소요 시간만 표시(응답 내용은 남기지 않음).
+  $('geminiTest').addEventListener('click', async () => {
+    const out = $('geminiTestOut'), btn = $('geminiTest');
+    btn.disabled = true; out.textContent = '연결 중…'; out.classList.remove('warn');
+    const t0 = Date.now();
+    try {
+      const res = await fetch('img/softKid.jpg');
+      if (!res.ok) throw new Error('테스트 사진을 불러오지 못했어요');
+      const blob = await res.blob();
+      const f = await analyzeImage(new File([blob], 'softKid.jpg', { type: 'image/jpeg' }), 'gemini');
+      out.textContent = `연결 성공 · ${((Date.now() - t0) / 1000).toFixed(1)}초 · 빛 ${f.light} (확신 ${Math.round(f.lightConfidence * 100)}%)`;
+    } catch (e) {
+      out.textContent = `연결 실패 · ${((Date.now() - t0) / 1000).toFixed(1)}초 · ${e && e.message ? e.message : '알 수 없는 오류'}`;
+      out.classList.add('warn');
+    } finally { btn.disabled = !$('geminiKey').value.trim(); }
+  });
   $('setupDone').addEventListener('click', () => { store.set(K.setup, !setupDone()); renderSettings(view); window.scrollTo(0, document.body.scrollHeight); });
 }
 

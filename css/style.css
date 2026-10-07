@@ -240,3 +240,8 @@ b { font-weight: 600; color: var(--title); }
 .field .lbl { display: block; }
 .field input { width: 100%; font: inherit; letter-spacing: inherit; font-size: 15px; height: 48px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--bg); color: var(--title); }
 .field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.field .row { display: flex; gap: 8px; align-items: center; }
+.field .row input { flex: 1; min-width: 0; }
+.field .row .lens-btn { flex: 0 0 auto; height: 48px; border-radius: 12px; }
+.lens-btn:disabled { background: var(--pill); color: var(--sub); }
+.ref-note.warn { color: var(--warn); }
