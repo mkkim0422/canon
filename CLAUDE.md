@@ -16,6 +16,9 @@
 - 설정 페이지 항목은 공통(SETUP_COMMON, SETUP_CMODE_STEPS)이고 경로·페이지는 camera.menu / camera.pages에서 읽는다. hasCModes가 false면 C 모드 단계 대신 안내 카드.
 - localStorage 키 접두어는 `cck.` (예전 `6d2.` 키는 app.js가 1회 마이그레이션하며 6D2 바디로 간주).
 
+## 저장소
+- GitHub: https://github.com/mkkim0422/canon (main). 작업이 끝나면 커밋·푸시하고, 폰이 연결돼 있으면 안드로이드 디버그 APK도 새로 설치한다. `sample/`(원본 PNG)은 .gitignore로 제외.
+
 ## 실행·검증
 - 빌드·의존성 없음. `index.html`을 브라우저로 열면 끝.
 - 폰용 공개 링크: https://claude.ai/artifact/FzqHsNUGc92WBc4W7PsnYS (claude.ai 아티팩트). 진입 파일은 `artifact.html`(doctype/head 없음). 재배포는 Artifact 도구로 `artifact.html` + `css/style.css` + `js/*.js`를 위 URL에 publish. 아티팩트 호스팅은 서비스워커와 `/` 포함 해시를 막으므로 라우트 구분자는 점(`#r.cafe.kid`).
