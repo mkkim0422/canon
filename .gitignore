@@ -1,0 +1,6 @@
+# 원본 샘플 PNG(장당 7~9MB)는 저장소에 넣지 않음. 앱은 img/*.jpg만 사용.
+sample/
+# OS / 편집기
+Thumbs.db
+.DS_Store
+*.tmp
