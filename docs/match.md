@@ -6,7 +6,8 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 - AI 응답(Features)은 **분류값만** 쓴다. 조리개·셔터·ISO 같은 숫자는 전부 `compute(cameraId, sceneId, subjectId, lensId, override)`에서만 나온다.
 - 노출보정은 **현재 상황**(SCENES[scene].ec)에서만 온다. 레퍼런스가 역광이라고 +1을 주지 않는다. 역광 효과를 원하면 `linkSceneId: 'backlit'`으로 상황을 바꾸게 안내한다.
 - Features의 어떤 값도 숫자로 직접 쓰지 않는다. (dof 'deep' → "조리개 5.6"은 override로 compute()에 넘겨서 계산 결과를 받는 것이지 Features가 숫자를 준 것이 아니다.)
-- 분석 실패·불확실(`lightConfidence < 0.5`, light 'unknown')이면 상황 추천(sameSceneId)은 null. 나머지 규칙은 계속 적용.
+- 분석 실패·불확실(`lightConfidence < 0.5`, light 'unknown')이면 상황 추천(sameSceneId)은 null. 나머지 규칙은 계속 적용. (단, rimLight·backlit은 confidence와 무관하게 'backlit'.)
+- compute()의 `override.apRule`: 'portrait' = 상황 기본 조리개(SCENES[scene].aperture[lens]), 'wideOpen' = 렌즈 최대 개방(lens.apMin). `override.aperture`가 있으면 그것이 우선. (exposure.js에 이 규칙을 읽는 최소 수정이 들어 있다.)
 
 ## Features 스키마 (analyze.js의 validateFeatures가 보장)
 | 필드 | 허용값 | 밖이면 |
@@ -34,7 +35,7 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 |---|---|
 | settings | compute() 결과 그대로 (aperture, shutter, iso, ec, cmode, af … ) |
 | summary | `역광 · 배경 강하게 흐림 · 따뜻한 채도 · 망원 느낌` 형식 한 줄. 빛 → 심도 → 색 → 화각 순, 해당 없는 조각은 생략 |
-| sameSceneId | (a) 표의 상황 id. confidence < 0.5 또는 매핑 없음이면 null |
+| sameSceneId | 우선순위: ① rimLight true 또는 light 'backlit' → 'backlit' (confidence 무관) ② light 'studio'·'unknown' → null ③ lightConfidence < 0.5 → null ④ 그 외 (a) 표 |
 | possible | `[{ what, how }]` 지금 상황·렌즈로 되는 것 |
 | impossible | `[{ what, why, alt, linkSceneId }]` 지금은 안 되는 것과 대안 |
 | lensWarning | `{ need, okLenses }` 또는 null |
@@ -56,13 +57,13 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 | night | nightPortrait |
 | studio | null + impossible 고정 문구 ((g)와 같은 항목) |
 | unknown | null |
-confidence < 0.5면 null.
+우선순위: ① rimLight true 또는 light 'backlit' → 'backlit' (confidence 무관) ② studio·unknown → null ③ confidence < 0.5 → null ④ 그 외 이 표.
 
 ### (b) dof → 조리개 override · 렌즈 요구
 | dof | override | lensRequirement | possible |
 |---|---|---|---|
-| shallow | apRule 'portrait' (= 상황 기본 조리개, override 없음) | `{ maxAp: 2.2 }` | 렌즈 조건 충족 시 `배경 강하게 흐림` / how: "f/{aperture}, 피사체와 배경 3m 이상 떼기" |
-| medium | apRule 'portrait' (override 없음) | 없음 | `적당한 배경 분리` / how: "f/{aperture}, 눈에 초점" |
+| shallow | `{ apRule: 'portrait' }` (= 상황 기본 조리개) | `{ maxAp: 2.2 }` | 렌즈 조건 충족 시 `배경 강하게 흐림` / how: "f/{aperture}, 피사체와 배경 3m 이상 떼기" |
+| medium | `{ apRule: 'portrait' }` | 없음 | `적당한 배경 분리` / how: "f/{aperture}, 눈에 초점" |
 | deep | `{ aperture: 5.6 }` | 없음 | `앞뒤 모두 선명` / how: "f/{aperture}, 가운데 사람 얼굴에 초점" |
 
 ### (c) focalFeel → 렌즈 요구 · 이동 팁
@@ -78,9 +79,10 @@ confidence < 0.5면 null.
 - motion 'blur'는 possible에 넣지 않고 notes에만: "흔들림 효과는 이 앱이 다루지 않음".
 
 ### (e) 역광 · 머리카락 테두리 빛
-- rimLight true 또는 light 'backlit' → sameSceneId 'backlit' (confidence 조건은 그대로).
+- rimLight true 또는 light 'backlit' → sameSceneId 'backlit' (confidence 무관).
 - 현재 상황이 backlit → possible `머리카락 테두리 빛 (해를 등지고)` / how: "해를 등지게 세우고 노출보정 {현재 상황 ec}".
-- 아니면 impossible `{ what: '머리카락 테두리 빛', why: '햇빛을 등진 역광이라 지금 빛으론 안 됨', alt: '오후 4시 이후 창가·야외. 실내면 스탠드를 뒤쪽 45도에', linkSceneId: 'backlit' }`.
+- 현재 상황이 indoorWindow → possible `{ what: '창을 등진 테두리 빛', how: '창을 등지고 서서 노출보정 +0.7' }`.
+- backlit·indoorWindow 외 상황 → impossible `{ what: '머리카락 테두리 빛', why: '햇빛을 등진 역광이라 지금 빛으론 안 됨', alt: '오후 4시 이후 창가·야외. 실내면 스탠드를 뒤쪽 45도에', linkSceneId: 'backlit' }`.
 
 ### (f) 빛 불일치 (사진 light vs 현재 상황의 light)
 현재 상황의 light: outdoorSunny→sunny, outdoorShade→shade, backlit→backlit, cloudyRain→overcast, indoorWindow→window, indoorEvening→home, cafe→dim, nightPortrait→night.
@@ -103,7 +105,7 @@ artificialLight true 또는 light 'studio' → impossible **맨 위 고정** `{ 
 | saturation low | 채도 -2 | 채도 -15 |
 | saturation mid | 없음 | 없음 |
 | warmth warm | WB 분위기 우선 유지 | 따뜻함 +10 |
-| warmth cool | Q → WB 화이트 우선 | 따뜻함 -10 |
+| warmth cool | AWB 화이트 우선으로 (설정 페이지 WB 항목 참고) | 따뜻함 -10 |
 | contrast high | 콘트라스트 +1 | 대비 +10 |
 colorTips.edit는 항상 "색감의 절반은 보정이에요. 라이트룸: …" 형식. ps 항목이 하나라도 있으면 possible에 `색감 (픽처스타일)` / how: ps 문자열.
 

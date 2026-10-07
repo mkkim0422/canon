@@ -36,6 +36,7 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   // (b) 조리개 override (숫자는 compute()로 넘길 뿐 features에서 오지 않음)
   const override = {};
   if (f.dof === 'deep') override.aperture = 5.6;
+  else override.apRule = 'portrait'; // shallow·medium: 상황 기본 조리개 (exposure.js가 scene.apRule보다 우선 적용)
   const settings = compute(camera.id, scene.id, subjectId, lens.id, override);
 
   // (b)(c) 렌즈 요구 → (i) 판정
@@ -54,18 +55,22 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   const apOk = req.maxAp == null || lens.apMin <= req.maxAp;
   const focalOk = req.minFocal == null || Math.round(lens.tele * camera.crop) >= req.minFocal;
 
-  // (a)(e) sameSceneId
-  let sameSceneId = f.lightConfidence >= 0.5 ? (MATCH.lightToScene[f.light] || null) : null;
-  if ((f.rimLight || f.light === 'backlit') && f.lightConfidence >= 0.5) sameSceneId = 'backlit';
+  // (a)(e) sameSceneId 우선순위: ① rimLight·backlit → 'backlit'(confidence 무관) ② studio·unknown → null ③ confidence < 0.5 → null ④ 표 (a)
+  let sameSceneId;
+  if (f.rimLight || f.light === 'backlit') sameSceneId = 'backlit';
+  else if (f.light === 'studio' || f.light === 'unknown') sameSceneId = null;
+  else if (f.lightConfidence < 0.5) sameSceneId = null;
+  else sameSceneId = MATCH.lightToScene[f.light] || null;
 
   const possible = [], impossible = [];
 
   // (g) 인공 조명 맨 위 고정
   if (f.artificialLight || f.light === 'studio') impossible.push(Object.assign({}, MATCH.artificial));
 
-  // (e) 역광
+  // (e) 역광: 현재 backlit → possible, indoorWindow → 창 테두리 빛 possible, 그 외 → impossible
   if (f.rimLight || f.light === 'backlit') {
     if (scene.id === 'backlit') possible.push({ what: '머리카락 테두리 빛 (해를 등지고)', how: `해를 등지게 세우고 노출보정 ${fmtEC(settings.ec)}` });
+    else if (scene.id === 'indoorWindow') possible.push({ what: '창을 등진 테두리 빛', how: '창을 등지고 서서 노출보정 +0.7' });
     else impossible.push(Object.assign({}, MATCH.rim));
   }
 
@@ -98,7 +103,7 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   if (f.color.saturation === 'high') { ps.push('채도 +2'); edit.push('채도 +15'); }
   if (f.color.saturation === 'low') { ps.push('채도 -2'); edit.push('채도 -15'); }
   if (f.color.warmth === 'warm') { ps.push('WB 분위기 우선 유지'); edit.push('따뜻함 +10'); }
-  if (f.color.warmth === 'cool') { ps.push('Q → WB 화이트 우선'); edit.push('따뜻함 -10'); }
+  if (f.color.warmth === 'cool') { ps.push('AWB 화이트 우선으로 (설정 페이지 WB 항목 참고)'); edit.push('따뜻함 -10'); }
   if (f.color.contrast === 'high') { ps.push('콘트라스트 +1'); edit.push('대비 +10'); }
   const colorTips = { ps: ps.join(', '), edit: `색감의 절반은 보정이에요. 라이트룸: ${edit.length ? edit.join(', ') : '기본값 그대로'}` };
   if (ps.length) possible.push({ what: '색감 (픽처스타일)', how: colorTips.ps });

@@ -38,14 +38,14 @@
 ## 파일
 - `docs/facts.md` — 사양·메뉴 경로(매뉴얼 페이지)·렌즈·EV 표·공식·계산표·check.js용 JSON. **모든 숫자의 유일한 근거.**
 - `js/data.js` — 데이터만. CAMERA_COMMON, CAMERAS(바디), 표준값 표, WB, LENSES(EF 2 + RF 4), LIGHTS, SUBJECTS(2종), SCENES(8개), STYLES(9개), SETUP_COMMON / SETUP_CMODE_STEPS(한 번만 하는 설정 템플릿).
-- `js/exposure.js` — `compute(camera, scene, subject, lens, override)` 하나 + 마운트 호환(`lensCompatible`, `compatibleLenses`) + 바디별 표준값 표(`tablesFor`). 로직 변경은 여기만. 문구는 만들지 않는다.
+- `js/exposure.js` — `compute(camera, scene, subject, lens, override)` 하나 + 마운트 호환(`lensCompatible`, `compatibleLenses`) + 바디별 표준값 표(`tablesFor`). 로직 변경은 여기만. 문구는 만들지 않는다. override에 `apRule: 'portrait' | 'wideOpen'`(상황 기본 조리개 / 렌즈 최대 개방)을 받으며 `aperture`가 있으면 그것이 우선 — match.js가 쓴다.
 - `js/dials.js` — `dialSteps(r)`. family별 다이얼 조작 문구 템플릿(Av/M). 문구 수정은 여기만.
 - `js/exif.js` — JPEG EXIF 최소 파서 `readExif(file)`. 원본 File에서만 읽는다(축소본엔 EXIF 없음). PNG·WebP·태그 없음 → null.
 - `js/analyze.js` — `analyzeImage(file, mode)`. mock은 파일명(basename, 대소문자 무시)으로 MOCK_FEATURES를 돌려주고 0.8초 지연. gemini는 2단계 미구현(에러). `validateFeatures()`가 허용값 밖을 치환하고 숫자 필드를 버린다.
 - `js/mock-features.js` — img/ 샘플 9장의 Features. STYLES와 모순되면 STYLES 우선.
 - `js/match.js` — `matchFeatures(features, currentSceneId, currentSubjectId, cameraId, lensId, ownedLensIds)`. docs/match.md의 구현.
 - `docs/match.md` — '이 사진처럼 찍기' 매핑 규칙 명세. **규칙 추가·수정은 이 문서 먼저.**
-- `test.html` — 샘플 9장 × 현재 상황 3가지 mock 매핑 표. 브라우저로 열면 됨. (화면 연결은 다음 세션, app.js 미변경)
+- `test.html` — 샘플 9장 × 현재 상황 3가지 mock 매핑 표. img/를 fetch하므로 로컬 서버로 열 것(`python -m http.server 8000`; file://에서는 fetch가 막힘). (화면 연결은 다음 세션, app.js 미변경)
 - `js/app.js` — 해시 라우팅과 렌더. 로직 없음.
 - `css/style.css` — 테마 변수, 다크모드 자동.
 - `check.js` — Node 검증 스크립트.

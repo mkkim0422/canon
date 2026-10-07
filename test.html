@@ -34,8 +34,15 @@
   const CAM = 'eos6d2', LENS = 'ef50', OWNED = ['ef24105', 'ef50'];
   const CURRENT = ['outdoorSunny', 'indoorEvening', 'nightPortrait'];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const files = STYLES.map((s) => new File([''], s.id + '.jpg', { type: 'image/jpeg' }));
+  // 실제 img/{styleId}.jpg를 fetch → Blob → File(name = '{styleId}.jpg')로 감싸 analyzeImage에 넘긴다 (file:// 에서는 fetch가 막히므로 로컬 서버로 열 것).
+  const files = await Promise.all(STYLES.map(async (s) => {
+    const res = await fetch(s.image);
+    if (!res.ok) throw new Error(s.image + ' ' + res.status);
+    const blob = await res.blob();
+    return new File([blob], s.id + '.jpg', { type: 'image/jpeg' });
+  }));
   const feats = await Promise.all(files.map((f) => analyzeImage(f, 'mock')));
+  const exifs = await Promise.all(files.map((f) => readExif(f))); // 샘플에 EXIF 없으면 null로 통과
   const rows = STYLES.map((st, i) => {
     const f = feats[i];
     const cells = CURRENT.map((sc) => {
@@ -55,7 +62,7 @@
     const m0 = matchFeatures(f, CURRENT[0], null, CAM, LENS, OWNED);
     const lw = m0.lensWarning ? `<span class="warn">${esc(m0.lensWarning.need)}</span><br><span class="muted">가능 렌즈: ${m0.lensWarning.okLenses.join(', ') || '없음'}</span>` : '<span class="ok">없음</span>';
     return `<tr>
-      <td><img src="${st.image}" alt=""><div class="muted">${st.id}</div></td>
+      <td><img src="${st.image}" alt=""><div class="muted">${st.id}</div><div class="muted">${Math.round(files[i].size / 1024)}KB · EXIF ${exifs[i] ? esc(JSON.stringify(exifs[i])) : 'null'}</div></td>
       <td>${esc(m0.summary)}<div class="muted">${esc(f.notes.join(' / '))}</div></td>
       <td class="num">${m0.sameSceneId || '<span class="muted">null</span>'}</td>
       ${cells}

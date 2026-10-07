@@ -60,8 +60,10 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
   const combo = (scene.perCombo && scene.perCombo[lens.id + '.' + subject.id]) || null;
   const T = tablesFor(camera);
 
-  // 조리개: 상황값(렌즈별) → override → 렌즈 범위로 클램프
-  let ap = ov.aperture != null ? ov.aperture : scene.aperture[lens.id];
+  // 조리개: override.aperture → override.apRule('portrait' = 상황 기본값, 'wideOpen' = 렌즈 최대 개방) → 상황값(렌즈별) → 렌즈 범위로 클램프
+  let ap = ov.aperture != null ? ov.aperture
+    : ov.apRule === 'wideOpen' ? lens.apMin
+    : scene.aperture[lens.id]; // apRule 'portrait' 또는 없음
   const apNotes = [];
   if (ap < lens.apMin) { apNotes.push(`이 렌즈 최대 개방 f/${lens.apMin}에 맞춤`); ap = lens.apMin; }
   if (ap > lens.apMax) ap = lens.apMax;
