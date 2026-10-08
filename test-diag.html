@@ -17,7 +17,7 @@
   .lt { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
   .ok { background: #22c55e; } .warn { background: #f5c518; } .bad { background: #f04452; }
   .muted { color: #8b95a1; }
-  .sev-bad { color: #c8102e; } .sev-warn { color: #a16207; } .sev-info { color: #8b95a1; }
+  .sev-bad { color: #c8102e; } .sev-warn { color: #a16207; } .sev-info { color: #8b95a1; } .sev-ok { color: #1a7f37; font-weight: 600; }
   tr.sharp td { background: #f6fff8; }
   #sum { margin-top: 10px; font-weight: 600; }
 </style>
@@ -79,6 +79,7 @@ function toImageData(img, filter) {
         <td>${v.label}</td>
         <td class="num">${px.sharpness.toFixed(1)}</td>
         <td class="num">${Math.round(px.faceLuma * 100)}%${px.faceEstimate ? '<span class="muted"> 추정</span>' : ''}</td>
+        <td class="num">${Math.round(px.imageLuma * 100)}%</td>
         <td class="num">${(px.clipping.highlights * 100).toFixed(1)}%</td>
         <td class="num">${(px.clipping.shadows * 100).toFixed(1)}%</td>
         <td class="num">${ms.toFixed(0)}ms</td>
@@ -88,7 +89,7 @@ function toImageData(img, filter) {
     }
   }
   document.getElementById('out').innerHTML = `<table>
-    <thead><tr><th>사진</th><th>변형</th><th>sharpness</th><th>얼굴 밝기</th><th>하이라이트</th><th>섀도</th><th>pixels 시간</th><th>lights</th><th>findings</th></tr></thead>
+    <thead><tr><th>사진</th><th>변형</th><th>sharpness</th><th>얼굴 밝기</th><th>전체 밝기</th><th>하이라이트</th><th>섀도</th><th>pixels 시간</th><th>lights</th><th>findings</th></tr></thead>
     <tbody>${rows.join('')}</tbody></table>`;
   const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
   const mn = (a) => Math.min(...a), mx = (a) => Math.max(...a);
@@ -105,20 +106,35 @@ function toImageData(img, filter) {
   // EXIF 있는 경로: 가짜 exif 3개 × softKid 원본 픽셀
   const base = toImageData(await loadImg(byId(STYLES, 'softKid').image), 'none').data;
   const px = analyzePixels(base, await detectFaces(null));
+  // 기대값(expect)은 docs/diagnose.md (a)(b)(f)에서 계산. ✓/✗로 표시.
+  const SIX = { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF50mm f/1.8 STM', focal: 50, flash: false };
   const FAKES = [
-    { label: '맑음 1/2000 f/3.2 ISO100 Av', exif: { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF50mm f/1.8 STM', fNumber: 3.2, exposureTime: 1 / 2000, iso: 100, ec: 0, focal: 50, program: 'Av', flash: false } },
-    { label: '실내 1/60 f/1.8 ISO3200 Av', exif: { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF50mm f/1.8 STM', fNumber: 1.8, exposureTime: 1 / 60, iso: 3200, ec: 0, focal: 50, program: 'Av', flash: false } },
-    { label: '오토 1/125 f/5.6 ISO800 P', exif: { make: 'Canon', model: 'Canon EOS 6D Mark II', lens: 'EF24-105mm f/4L IS USM', fNumber: 5.6, exposureTime: 1 / 125, iso: 800, ec: 0, focal: 70, program: 'P', flash: false } },
+    { label: '맑음 1/2000 f/3.2 ISO100 Av', exif: { ...SIX, fNumber: 3.2, exposureTime: 1 / 2000, iso: 100, ec: 0, program: 'Av' }, expect: { scene: 'outdoorSunny', conf: 'high', mode: 'ok' } },
+    { label: '어두운 실내 1/60 f/1.8 ISO3200 Av (L3 low)', exif: { ...SIX, fNumber: 1.8, exposureTime: 1 / 60, iso: 3200, ec: 0, program: 'Av' }, expect: { scene: 'indoorEvening', conf: 'low', mode: 'ok' } },
+    { label: '오토 1/125 f/5.6 ISO800 P (L6 warn)', exif: { ...SIX, lens: 'EF24-105mm f/4L IS USM', focal: 70, fNumber: 5.6, exposureTime: 1 / 125, iso: 800, ec: 0, program: 'P' }, expect: { scene: 'indoorWindow', conf: 'high', mode: 'warn' } },
+    { label: '흐림 1/250 f/4 ISO200 +0.3 Av (L2 역광 아님)', exif: { ...SIX, lens: 'EF24-105mm f/4L IS USM', focal: 85, fNumber: 4, exposureTime: 1 / 250, iso: 200, ec: 0.3, program: 'Av' }, expect: { scene: 'outdoorShade', conf: 'high', mode: 'ok' } },
+    { label: '역광 1/400 f/2.2 ISO100 +1 Av', exif: { ...SIX, fNumber: 2.2, exposureTime: 1 / 400, iso: 100, ec: 1, program: 'Av' }, expect: { scene: 'backlit', conf: 'high', mode: 'ok' } },
+    { label: '고ISO 1/125 f/2.2 ISO12800 Av (L4 보류)', exif: { ...SIX, fNumber: 2.2, exposureTime: 1 / 125, iso: 12800, ec: 0, program: 'Av' }, expect: { scene: 'indoorEvening', conf: 'low', mode: 'ok', blur: 'warn' } },
+    { label: 'SCN Portrait 1/200 f/4 ISO400 (L6 bad)', exif: { ...SIX, lens: 'EF24-105mm f/4L IS USM', focal: 70, fNumber: 4, exposureTime: 1 / 200, iso: 400, ec: 0, program: 'Portrait' }, expect: { scene: 'indoorWindow', conf: 'high', mode: 'bad' } },
   ];
-  document.getElementById('out2').innerHTML = `<table>
-    <thead><tr><th>가짜 EXIF</th><th>exifSummary</th><th>EV100</th><th>sceneGuess</th><th>subject</th><th>next (compute)</th><th>lights</th><th>findings</th></tr></thead>
-    <tbody>${FAKES.map((f) => {
-      const d = diagnose(f.exif, px, CAM, LENS);
-      const n = d.next;
-      return `<tr><td>${esc(f.label)}</td><td>${esc(d.exifSummary)}</td><td class="num">${d.ev100 == null ? '-' : d.ev100.toFixed(1)}</td><td>${d.sceneGuess || '<span class="muted">null</span>'}</td><td>${d.subjectGuess}</td>
-        <td>${n ? `f/${n.aperture} · EC ${fmtEC(n.ec)} · ${n.mode === 'Av' ? (n.cmode || 'Av') : 'M'} · ${fmtShutter(n.shutter)} · ISO ${n.iso} <span class="muted">(${d.cameraId}/${d.lensId})</span>` : '<span class="muted">null</span>'}</td>
-        <td>${lightsCell(d.lights)}</td><td>${d.findings.map((x) => `<div class="sev-${x.sev}"><b>${esc(x.title)}</b> — ${esc(x.detail)} → ${esc(x.fix)}</div>`).join('')}</td></tr>`;
-    }).join('')}</tbody></table>`;
+  let pass = 0;
+  const rows2 = FAKES.map((f) => {
+    const d = diagnose(f.exif, px, CAM, LENS);
+    const n = d.next;
+    const e = f.expect;
+    const okScene = d.sceneGuess === e.scene && (d.sceneConfidence || null) === e.conf;
+    const okMode = d.lights.mode === e.mode;
+    const okBlur = e.blur == null || d.lights.blur === e.blur;
+    const ok = okScene && okMode && okBlur; if (ok) pass++;
+    return `<tr><td>${esc(f.label)}</td><td>${esc(d.exifSummary)}</td><td class="num">${d.ev100 == null ? '-' : d.ev100.toFixed(1)}</td>
+      <td>${d.sceneGuess || '<span class="muted">null</span>'}${d.sceneConfidence === 'low' ? ' <span class="muted">(대략)</span>' : ''}</td><td>${d.subjectGuess}</td>
+      <td>${n ? `f/${n.aperture} · EC ${fmtEC(n.ec)} · ${n.mode === 'Av' ? (n.cmode || 'Av') : 'M'} · ${fmtShutter(n.shutter)} · ISO ${n.iso} <span class="muted">(${d.cameraId}/${d.lensId})</span>` : '<span class="muted">null</span>'}</td>
+      <td>${lightsCell(d.lights)}</td><td>${d.findings.map((x) => `<div class="sev-${x.sev}"><b>${esc(x.title)}</b> — ${esc(x.detail)} → ${esc(x.fix)}</div>`).join('')}</td>
+      <td class="${ok ? 'sev-ok' : 'sev-bad'}">${ok ? '✓' : '✗'} <span class="muted">기대 ${e.scene}/${e.conf}/mode ${e.mode}${e.blur ? '/blur ' + e.blur : ''}</span></td></tr>`;
+  });
+  document.getElementById('out2').innerHTML = `<p id="sum2">기대값 일치 ${pass}/${FAKES.length}</p><table>
+    <thead><tr><th>가짜 EXIF</th><th>exifSummary</th><th>EV100</th><th>sceneGuess</th><th>subject</th><th>next (compute)</th><th>lights</th><th>findings</th><th>검증</th></tr></thead>
+    <tbody>${rows2.join('')}</tbody></table>`;
 })();
 </script>
 </body>

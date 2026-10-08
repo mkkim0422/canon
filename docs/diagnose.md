@@ -15,6 +15,7 @@ AI API를 쓰지 않는다. EXIF(js/exif.js) + 온디바이스 픽셀 분석(js/
 | lights | `{ blur, face, highlights, noise, mode }` 각각 'ok' \| 'warn' \| 'bad' |
 | findings | `[{ sev, key, title, detail, fix }]` 문제만. sev는 'bad' \| 'warn' \| 'info'. 정렬은 (g) |
 | sceneGuess | 상황 id 또는 null — (a) |
+| sceneConfidence | 'high' \| 'low'(화면에 "(대략)") \| null — (a) |
 | subjectGuess | 'kid' \| 'still' — 셔터 ≤ 1/500이면 kid, 아니면 still |
 | next | `compute(진단 바디, sceneGuess, subjectGuess, 진단 렌즈)` 또는 null(sceneGuess 없음·EXIF 없음) |
 | exifSummary | `f/1.8 · 1/60 · ISO 3200 · 50mm · 보정 0 · Av` 또는 null |
@@ -28,6 +29,7 @@ AI API를 쓰지 않는다. EXIF(js/exif.js) + 온디바이스 픽셀 분석(js/
 | faceRegion(imageData, faces) | faces(detectFaces 결과)가 있으면 가장 큰 사각형, 없으면 중앙 40%×40% → `{ rect, isEstimate }` |
 | detectFaces(source) | `window.FaceDetector`가 있으면 얼굴 사각형 배열(비동기 Promise), 없으면 `[]`. FaceDetector의 detect()가 비동기라 동기 함수인 faceRegion이 직접 못 부르므로 호출자가 먼저 await 해서 넘긴다 |
 | regionLuma(imageData, rect) | 영역 평균 밝기 0~1 |
+| imageLuma | 전체 평균 밝기 0~1 (clipping 계산 중 함께 누적). (c)의 상대 기준 |
 | analyzePixels(imageData, faces) | 위를 한 번에 묶은 pixels 객체 |
 성능(2026-10-07, test-diag.html 36장, 1024px 축소본, 헤드리스 Chrome): 평균 4ms, 최대 11ms. 목표 200ms 안.
 
@@ -35,12 +37,13 @@ AI API를 쓰지 않는다. EXIF(js/exif.js) + 온디바이스 픽셀 분석(js/
 
 ### (a) EV 역산 → 상황 추정 (sceneGuess)
 - EV100 = log2(N² / t) − log2(ISO / 100) + EC. (fNumber·exposureTime·iso 중 하나라도 없으면 null)
-- 후보 LIGHTS와 |EV 차|가 최소인 것. 차이가 **2 이상이면 null**. 같은 EV가 여럿이면 아래 표 순서로 먼저 맞는 것(home 6 = dim 6 = nightFace 6 → home).
+- 후보 LIGHTS와 |EV 차|가 최소인 것. 같은 EV가 여럿이면 아래 표 순서로 먼저 맞는 것(home 6 = dim 6 = nightFace 6 → home).
+- 차이에 따라 **sceneConfidence**: 차 < 2 → 'high' / 2 ≤ 차 < 4 → 'low'(가장 가까운 상황을 그대로 추천하되 화면에 "(대략)" 표시) / 차 ≥ 4 → sceneGuess null, sceneConfidence null. (L3: 1/60 f/1.8 ISO3200 같은 흔한 어두운 실내 사진이 추천을 못 받던 문제)
 
 | light | ev | sceneGuess |
 |---|---|---|
 | sunny | 15 | outdoorSunny |
-| shade | 12 | outdoorShade. **EC > 0이면 backlit** (shade와 overcast는 EV가 같아 역광 얼굴은 보정값으로 구분) |
+| shade | 12 | outdoorShade. **EC ≥ +0.7이면 backlit** (shade와 overcast는 EV가 같아 역광 얼굴은 보정값으로 구분. +0.3은 흐림·창가 기본값이라 역광으로 보지 않는다 — L2) |
 | overcast | 12 | outdoorShade (위와 같음) |
 | window | 9 | indoorWindow |
 | home | 6 | indoorEvening |
@@ -48,15 +51,18 @@ AI API를 쓰지 않는다. EXIF(js/exif.js) + 온디바이스 픽셀 분석(js/
 | nightFace | 6 | nightPortrait |
 preSunset(13)은 후보에서 뺀다(실루엣 스타일 전용).
 
-예: 1/2000 f/3.2 ISO 100 → 14.3 → sunny(차 0.7) → outdoorSunny. 1/125 f/5.6 ISO 800 → 8.9 → window → indoorWindow. 1/60 f/1.8 ISO 3200 → 2.6 → 가장 가까운 home(6)과 3.4 차 → null.
+예: 1/2000 f/3.2 ISO 100 → 14.3 → sunny(차 0.7) → outdoorSunny(high). 1/125 f/5.6 ISO 800 → 8.9 → window → indoorWindow(high). 1/60 f/1.8 ISO 3200 → 2.6 → 가장 가까운 home(6)과 3.4 차 → indoorEvening(low, "(대략)"). 1/250 f/4 ISO 200 EC +0.3 → 11.3 → shade(차 0.7), EC < +0.7 → outdoorShade(backlit 아님). 30초 f/2.8 ISO 100 → −1.9 → home과 7.9 차 → null.
 
 ### (b) 흔들림 (blur)
 - 핸드헬드 한계 limit = min(CAMERA_COMMON.handheldCap 1/15, slack / (focal × crop)). focal은 EXIF FocalLength, 없으면 렌즈 portraitFocal.
 - slack: IS 렌즈면 2^(isStops − 2), 아니면 1. isStops가 없는 IS 렌즈(EF 24-105 IS)는 4스톱으로 본다(= compute의 isGainFactor 4와 같음).
 - sharpness 낮음 = sharpness < **S_LOW**. t 느림 = exposureTime > limit. 최대 개방 근처 = fNumber ≤ lens.apMin + 0.3.
+- **고감도 보류(L4)**: ISO ≥ camera.isoUsable이면 sharpness를 판정에 쓰지 않는다(노이즈는 고주파라 라플라시안 분산을 올려 흐린 사진도 선명하게 읽힘. S_LOW는 노이즈 없는 AI 샘플 기준). 이때 느림이면 warn '셔터가 한계보다 느림 (선명도는 노이즈로 판정 보류)', 아니면 warn '선명도 판정 보류 (고감도 노이즈)'.
 
 | 조건 | lights.blur | title | fix |
 |---|---|---|---|
+| ISO ≥ isoUsable 그리고 느림 | warn | 셔터가 한계보다 느림 (선명도는 노이즈로 판정 보류) | 최소 셔터 limit 이상, 흔들림은 확대해서 눈으로 확인 |
+| ISO ≥ isoUsable (그 외) | warn | 선명도 판정 보류 (고감도 노이즈) | 확대해서 눈으로 확인. 다음엔 밝은 자리·밝은 렌즈로 ISO 낮추기 |
 | 낮음 그리고 느림 | bad | 손떨림 | C1/C2 최소 셔터가 지켜졌는지, 또는 ISO 상한 올리기 |
 | 낮음 그리고 빠름 그리고 최대 개방 근처 | bad | 초점 빗나감 (심도 얕음) | f/2.2로 조이고 눈에 1점 AF |
 | 낮음 그리고 빠름 그리고 f 충분 | warn | 초점 또는 피사체 움직임 | AI Servo + 연사 (바디의 kid AF 명칭) |
@@ -75,8 +81,8 @@ preSunset(13)은 후보에서 뺀다(실루엣 스타일 전용).
 - 여유: 블러 최대 2.5는 임계의 1/4.8, 선명 최소(어둡게 rimLight) 19.0은 1.6배. 실제 카메라 JPEG으로 재검증 전까지 바꾸지 않는다.
 
 ### (c) 얼굴 (face)
-- faceLuma < 0.30 → bad '얼굴 어두움' fix '노출보정 +0.7 (역광이면 +1)'. EC ≥ +0.7인 사진이면 fix '노출보정 +1'.
-- 0.30 ≤ faceLuma < 0.40 → warn '얼굴 조금 어두움' fix '노출보정 +0.3'.
+- bad = faceLuma < 0.30 **그리고** faceLuma < imageLuma − 0.10 (얼굴이 사진 전체 평균보다도 뚜렷이 어두울 때만. L5. imageLuma는 pixels.js 전체 평균 밝기 0~1) → '얼굴 어두움' fix '노출보정 +0.7 (역광이면 +1)'. EC ≥ +0.7인 사진이면 fix '노출보정 +1'.
+- 그 외 faceLuma < 0.40 → warn '얼굴 조금 어두움' fix '노출보정 +0.3'. (전체가 함께 어두운 야경·카페 사진은 여기까지만)
 - faceEstimate(FaceDetector 없음)면 title 뒤에 ' (중앙 기준 추정)'.
 
 ### (d) 하늘·배경 (highlights)
@@ -88,8 +94,8 @@ preSunset(13)은 후보에서 뺀다(실루엣 스타일 전용).
 - ISO > camera.isoHard → bad. ISO > camera.isoUsable → warn. fix '밝은 자리로, 밝은 렌즈로, 또는 방 조명 전부 켜기'. 바디는 진단 바디(아래 장비 규칙).
 
 ### (f) 모드 (mode)
-- program이 P · Creative · Action · Portrait · Landscape → bad '오토로 찍힘' fix 'C1/C2로'(C 모드 없는 바디는 'Av 모드로').
-- program 'other'(EXIF ExposureProgram 0 = 정의 안 됨. 캐논 전자동·SCN이 여기 기록됨) → warn '촬영 모드 확인 불가 (오토일 가능성)'.
+- program이 Creative · Action · Portrait · Landscape(SCN 계열, 노출보정·ISO 자동을 사람이 못 건드림) → bad '오토(SCN)로 찍힘' fix 'C1/C2로'(C 모드 없는 바디는 'Av 모드로').
+- program 'P' → warn 'P·오토 모드로 찍힘' (P는 노출보정·ISO 자동이 살아 있는 반자동이라 bad는 과함 — L6). program 'other'(EXIF ExposureProgram 0 = 정의 안 됨. 캐논 전자동이 여기 기록됨) → warn '촬영 모드 확인 불가 (오토일 가능성)'.
 - Av · Tv · M → ok. program 없음 → ok(판단 보류).
 - flash true → info '플래시 사용됨 — 이 앱 범위 밖'. lights에는 영향 없음.
 
@@ -107,4 +113,5 @@ preSunset(13)은 후보에서 뺀다(실루엣 스타일 전용).
 bad·warn이 하나도 없으면 info '설정은 문제없음 / 구도·순간은 사람 몫' 1개를 추가(장비·플래시·EXIF 없음 info와 함께 있을 수 있음).
 
 ## test-diag.html
-img/ 샘플 9장 + 캔버스 변형(블러 3px · brightness 0.6 · brightness 1.4) 27장 = 36장을 EXIF 없는 경로로 돌려 sharpness / 얼굴 밝기 / 하이라이트 / 섀도 / pixels 시간 / lights 5칸 / findings 표. 아래에 가짜 EXIF 3개(맑음 1/2000 f/3.2 ISO100 Av · 실내 1/60 f/1.8 ISO3200 Av · 오토 1/125 f/5.6 ISO800 P, 렌즈 EF 24-105)로 EXIF 경로(sceneGuess·next·findings) 표. 로컬 서버로 열 것(img/ fetch).
+img/ 샘플 9장 + 캔버스 변형(블러 3px · brightness 0.6 · brightness 1.4) 27장 = 36장을 EXIF 없는 경로로 돌려 sharpness / 얼굴 밝기 / 전체 밝기 / 하이라이트 / 섀도 / pixels 시간 / lights 5칸 / findings 표. 아래에 가짜 EXIF 7개(맑음 Av · 어두운 실내 Av(low) · P 모드 · 흐림 +0.3 Av · 역광 +1 Av · 고ISO 12800 Av · SCN Portrait)로 EXIF 경로(sceneGuess·confidence·next·findings) 표. 각 행에 기대값(sceneGuess·confidence·mode·blur)과 ✓/✗. 로컬 서버 또는 file://(--allow-file-access-from-files)로 열 것(img/ fetch).
+img/real/*.jpg(실사진)는 아직 없음 — L10에서 행 추가 예정(정적 페이지라 파일 목록은 수동 지정).

@@ -99,3 +99,18 @@ K 지시 원문은 이번 세션에 없어 "코드 수정 없이 점검 · 스�
 | L9 | SETUP ISO 상한이 isoUsable | 이미 충족 (A6) | 없음 |
 | L10 | img/real/*.jpg 실사진 행 + S_LOW 재검증 | 폴더 없음 | test-diag.html에 선택적 행 추가(파일 목록은 수동 지정 필요: 정적 서버라 디렉터리 나열 불가) |
 | L11 | check.js·test.html·test-diag.html 통과 후 audit 갱신 | — | L 완료 후 |
+
+## 5. L 반영 현황 (2026-10-08, 커밋은 git log 참조)
+| L | 상태 | 비고 |
+|---|---|---|
+| L1 | 완료 | 렌즈 EF 8 + RF 4, lens.portraitAp/scene.apRule, 다중 렌즈 체크(cck.lenses), 결과 칩 가로 스크롤, STYLES.recommend, 문구 일반화({apStop}), check.js 475 조합 통과 |
+| L2 | 완료 | backlit 판정 EC ≥ +0.7 (test-diag '흐림 +0.3' → outdoorShade) |
+| L3 | 완료 | EV 차 2~4 → 가장 가까운 상황 + sceneConfidence 'low'("(대략)"), ≥4 null. app.js 진단 결과 칩에 표시 |
+| L4 | 완료 | ISO ≥ isoUsable이면 선명도 판정 보류(warn 2종) |
+| L5 | 완료 | 얼굴 bad = <0.30 그리고 < imageLuma − 0.10. pixels.imageLuma 추가. nightBokeh 어둡게 변형이 bad → warn |
+| L6 | 완료 | P → warn 'P·오토 모드로 찍힘', SCN 계열만 bad |
+| L7 | 완료 | 핸드헬드 2^(isStops−2) exposure·diagnose·facts 통일 |
+| L8·L9 | 불필요 | 위 A5·A6 |
+| L10 | 대기 | img/real/ 실사진 없음 |
+| L11 | 부분 | check.js·test.html(mock 27조합)·test-diag(7/7) 통과. audit 본문 재점검은 L10 뒤 |
+추가: 역광 상황 현장 조정 1번을 "해가 화면 안에 들어오면 → 머리·나무 뒤로 숨기기"로(사용자 실전 플레어 피드백). theme-color #f2f4f6. 홈 탭 라벨 축약.

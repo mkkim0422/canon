@@ -444,7 +444,7 @@ async function diagProcess(file, onThumb) {
   const d = diagnose(exif, px, cam.id, lensId());
   t.diagnose = performance.now();
   const timing = { exif: t.exif - t.start, decode: t.decode - t.exif, pixels: t.pixels - t.decode, diagnose: t.diagnose - t.pixels, total: t.diagnose - t.start };
-  return { lights: d.lights, findings: d.findings, exifSummary: d.exifSummary, sceneGuess: d.sceneGuess, subjectGuess: d.subjectGuess,
+  return { lights: d.lights, findings: d.findings, exifSummary: d.exifSummary, sceneGuess: d.sceneGuess, sceneConfidence: d.sceneConfidence, subjectGuess: d.subjectGuess,
     thumb, gear: d.gear, cameraId: d.cameraId, lensId: d.lensId, faceEstimate: !!px.faceEstimate, fileSize: file.size, timing };
 }
 // 긴 변 maxEdge 축소본 캔버스 + ImageData. createImageBitmap(resize) 지원 시 사용, 아니면 Image+canvas.
@@ -529,7 +529,7 @@ function renderDiagResult(view, opts = {}) {
     ${gearDiff ? '' : lensRow(cam, lens.id)}
     <section class="card">
       <h2>다음엔 이렇게</h2>
-      ${next ? `<a class="pill press chip" href="#r.${scene.id}.${subject.id}">추정 상황: ${scene.label} · ${subject.label} ›</a>` : `
+      ${next ? `<a class="pill press chip" href="#r.${scene.id}.${subject.id}">추정 상황${s.sceneConfidence === 'low' ? '(대략)' : ''}: ${scene.label} · ${subject.label} ›</a>${s.sceneConfidence === 'low' ? '<p class="ref-note">촬영 정보 밝기가 이 상황과 2스톱 넘게 차이 나요. 가장 가까운 상황으로 보여드려요</p>' : ''}` : `
       <p class="ref-note">촬영 정보로 상황을 짐작하지 못했어요</p>
       <button type="button" class="btn press ghost" id="pickScene">상황을 직접 골라주세요</button>`}
     </section>

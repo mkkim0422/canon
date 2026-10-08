@@ -28,17 +28,18 @@ function sharpness(imageData) {
   return sum2 / n - mean * mean;
 }
 
-// 클리핑: 밝기(0~255) 250 이상 비율(highlights), 5 이하 비율(shadows). 0~1.
+// 클리핑: 밝기(0~255) 250 이상 비율(highlights), 5 이하 비율(shadows). 0~1. 같은 루프에서 전체 평균 밝기(mean, 0~1)도 누적.
 function clipping(imageData) {
   const { data } = imageData;
   const n = data.length / 4;
-  let hi = 0, lo = 0;
+  let hi = 0, lo = 0, sum = 0;
   for (let p = 0; p < data.length; p += 4) {
     const l = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+    sum += l;
     if (l >= 250) hi++;
     else if (l <= 5) lo++;
   }
-  return { highlights: n ? hi / n : 0, shadows: n ? lo / n : 0 };
+  return { highlights: n ? hi / n : 0, shadows: n ? lo / n : 0, mean: n ? sum / n / 255 : 0 };
 }
 
 // 얼굴 영역. faces: detectFaces()가 돌려준 사각형 배열(없거나 비면 중앙 40%×40% 추정).
@@ -83,9 +84,11 @@ function regionLuma(imageData, rect) {
 // diagnose()가 받는 pixels 객체 한 번에. faces는 detectFaces() 결과(선택).
 function analyzePixels(imageData, faces) {
   const face = faceRegion(imageData, faces);
+  const clip = clipping(imageData);
   return {
     sharpness: sharpness(imageData),
-    clipping: clipping(imageData),
+    clipping: clip,
+    imageLuma: clip.mean,                 // 전체 평균 밝기 0~1. (c) 얼굴 어두움의 상대 기준
     faceLuma: regionLuma(imageData, face.rect),
     faceRect: face.rect,
     faceEstimate: face.isEstimate,

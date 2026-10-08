@@ -6,14 +6,16 @@ const DIAG = {
   S_LOW: 12,           // 라플라시안 분산 임계. test-diag.html(샘플 9장 vs 블러 9장)로 산출: 원본 최소 51.3 · 블러 최대 2.5 의 기하평균 11.3 → 12. 근거는 docs/diagnose.md (b)
   FACE_BAD: 0.30, FACE_WARN: 0.40,
   HL_BAD: 0.08, HL_WARN: 0.03,
-  EV_MAX_DIFF: 2,
+  EV_HIGH_DIFF: 2,     // (a) 차 < 2 → confidence 'high'
+  EV_LOW_DIFF: 4,      // (a) 2 ≤ 차 < 4 → 'low'("(대략)"), 4 이상 → null
   AP_WIDE_MARGIN: 0.3,
   KID_SHUTTER: 1 / 500,
-  BACKLIT_EC: 0.7,
-  IS_STOPS_DEFAULT: 4, // is: true 인데 isStops가 없는 렌즈(EF 24-105 IS)
+  BACKLIT_EC: 0.7,     // (a) shade/overcast에서 EC ≥ 이 값이면 backlit. (c)(d) 역광 사진 판정에도 같은 값
+  FACE_REL: 0.10,      // (c) 얼굴 bad는 전체 평균보다 이만큼 어두울 때만
+  IS_STOPS_DEFAULT: 4, // is: true 인데 isStops가 없는 렌즈(EF 24-105 IS). exposure.js CAMERA_COMMON.isStopsDefault와 같은 값
   // (a) light id → 상황 id. 같은 EV가 여럿이면 이 순서로 먼저 맞는 것.
   lightToScene: [['sunny', 'outdoorSunny'], ['shade', 'outdoorShade'], ['overcast', 'outdoorShade'], ['window', 'indoorWindow'], ['home', 'indoorEvening'], ['dim', 'cafe'], ['nightFace', 'nightPortrait']],
-  autoPrograms: ['P', 'Creative', 'Action', 'Portrait', 'Landscape'],
+  scnPrograms: ['Creative', 'Action', 'Portrait', 'Landscape'], // (f) bad: 노출보정·ISO 자동을 못 건드리는 장면 모드
   manualPrograms: ['Av', 'Tv', 'M'],
 };
 const SEV = { bad: 0, warn: 1, info: 2 };
@@ -38,17 +40,18 @@ function ev100(exif) {
 }
 function guessScene(exif) {
   const ev = ev100(exif);
-  if (ev == null) return { ev: null, sceneId: null, lightId: null };
+  if (ev == null) return { ev: null, sceneId: null, lightId: null, confidence: null };
   let best = null;
   for (const [lightId, sceneId] of DIAG.lightToScene) {
     const l = byId(LIGHTS, lightId);
     const d = Math.abs(l.ev - ev);
     if (!best || d < best.d - 1e-9) best = { d, lightId, sceneId };
   }
-  if (!best || best.d >= DIAG.EV_MAX_DIFF) return { ev, sceneId: null, lightId: null };
+  if (!best || best.d >= DIAG.EV_LOW_DIFF) return { ev, sceneId: null, lightId: null, confidence: null };
   let sceneId = best.sceneId;
-  if (sceneId === 'outdoorShade' && (exif.ec || 0) > 0) sceneId = 'backlit';
-  return { ev, sceneId, lightId: best.lightId };
+  if (sceneId === 'outdoorShade' && (exif.ec || 0) >= DIAG.BACKLIT_EC) sceneId = 'backlit'; // L2: +0.3(흐림·창가 기본값)은 역광으로 보지 않음
+  const confidence = best.d < DIAG.EV_HIGH_DIFF ? 'high' : 'low';                           // L3: 2~4 차이는 "(대략)"으로 추천
+  return { ev, sceneId, lightId: best.lightId, confidence };
 }
 
 function exifSummary(exif) {
@@ -85,8 +88,10 @@ function diagnose(exif, pixels, cameraId, lensId) {
   let flashFired = false;
   if (hasExif) {
     const prog = exif.program;
-    if (DIAG.autoPrograms.includes(prog)) { lights.mode = 'bad'; add('bad', 'mode', '오토로 찍힘', `${prog} 모드. 카메라가 조리개·셔터를 다 정함`, cam.hasCModes ? `${cam.cModes.join('/')}로` : 'Av 모드로'); }
-    else if (prog === 'other') { lights.mode = 'warn'; add('warn', 'mode', '촬영 모드 확인 불가 (오토일 가능성)', 'EXIF ExposureProgram이 정의되지 않음. 캐논 전자동·SCN은 여기에 기록됨', cam.hasCModes ? `${cam.cModes.join('/')}로` : 'Av 모드로'); }
+    const toC = cam.hasCModes ? `${cam.cModes.join('/')}로` : 'Av 모드로';
+    if (DIAG.scnPrograms.includes(prog)) { lights.mode = 'bad'; add('bad', 'mode', '오토(SCN)로 찍힘', `${prog} 모드. 노출보정·ISO 자동을 사람이 못 건드림`, toC); }
+    else if (prog === 'P') { lights.mode = 'warn'; add('warn', 'mode', 'P·오토 모드로 찍힘', 'P는 조리개를 카메라가 정함. 노출보정·ISO 자동은 살아 있음', `${toC} (조리개를 내가 정함)`); } // L6
+    else if (prog === 'other') { lights.mode = 'warn'; add('warn', 'mode', '촬영 모드 확인 불가 (오토일 가능성)', 'EXIF ExposureProgram이 정의되지 않음. 캐논 전자동은 여기에 기록됨', toC); }
     flashFired = exif.flash === true;
     if (flashFired) add('info', 'flash', '플래시 사용됨', '이 앱 범위 밖', '플래시를 끄고 ISO 상한으로 버티기');
   }
@@ -101,7 +106,10 @@ function diagnose(exif, pixels, cameraId, lensId) {
     const limit = Math.min(CAMERA_COMMON.handheldCap, slack / (focal * cam.crop)); // 이보다 느리면(t > limit) 위험
     const slow = exif.exposureTime > limit * 1.0001;
     const wideOpen = exif.fNumber != null && exif.fNumber <= lens.apMin + DIAG.AP_WIDE_MARGIN;
-    if (low && slow) { lights.blur = 'bad'; add('bad', 'blur', '손떨림', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 핸드헬드 한계 ${fmtShutter(limit)}보다 느림`, `${cam.hasCModes ? cam.cModes.join('/') : 'ISO 자동'} 최소 셔터가 지켜졌는지, 또는 ISO 상한 올리기`); }
+    const highIso = exif.iso > 0 && exif.iso >= cam.isoUsable; // L4: 고감도 노이즈가 선명도 계산을 올려 신뢰 불가
+    if (highIso && slow) { lights.blur = 'warn'; add('warn', 'blur', '셔터가 한계보다 느림 (선명도는 노이즈로 판정 보류)', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 한계 ${fmtShutter(limit)}보다 느림. ISO ${exif.iso}라 선명도 계산을 믿을 수 없음`, `최소 셔터 ${fmtShutter(limit)} 이상, 흔들림은 확대해서 눈으로 확인`); }
+    else if (highIso) { lights.blur = 'warn'; add('warn', 'blur', '선명도 판정 보류 (고감도 노이즈)', `ISO ${exif.iso}에서는 노이즈가 선명도 계산을 올려 판정이 어려움`, '확대해서 눈으로 확인. 다음엔 밝은 자리·밝은 렌즈로 ISO 낮추기'); }
+    else if (low && slow) { lights.blur = 'bad'; add('bad', 'blur', '손떨림', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 핸드헬드 한계 ${fmtShutter(limit)}보다 느림`, `${cam.hasCModes ? cam.cModes.join('/') : 'ISO 자동'} 최소 셔터가 지켜졌는지, 또는 ISO 상한 올리기`); }
     else if (low && wideOpen) { lights.blur = 'bad'; add('bad', 'blur', '초점 빗나감 (심도 얕음)', `f/${exif.fNumber} 최대 개방 근처. 눈에서 몇 cm만 벗어나도 흐려짐`, 'f/2.2로 조이고 눈에 1점 AF'); }
     else if (low) { lights.blur = 'warn'; add('warn', 'blur', '초점 또는 피사체 움직임', `셔터 ${fmtShutter(exif.exposureTime)}는 충분한데 선명하지 않음`, `${cam.afModes.kid} + 연사`); }
     else if (slow) { lights.blur = 'warn'; add('warn', 'blur', '운 좋게 멈춤. 다음엔 위험', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 한계 ${fmtShutter(limit)}보다 느림`, `최소 셔터 ${fmtShutter(limit)} 이상, 모자라면 ISO 상한 올리기`); }
@@ -113,8 +121,10 @@ function diagnose(exif, pixels, cameraId, lensId) {
   if (pixels && pixels.faceLuma != null) {
     const est = pixels.faceEstimate ? ' (중앙 기준 추정)' : '';
     const backlit = hasExif && (exif.ec || 0) >= DIAG.BACKLIT_EC;
-    if (pixels.faceLuma < DIAG.FACE_BAD) { lights.face = 'bad'; add('bad', 'face', '얼굴 어두움' + est, `얼굴 밝기 ${Math.round(pixels.faceLuma * 100)}%`, backlit ? '노출보정 +1' : '노출보정 +0.7 (역광이면 +1)'); }
-    else if (pixels.faceLuma < DIAG.FACE_WARN) { lights.face = 'warn'; add('warn', 'face', '얼굴 조금 어두움' + est, `얼굴 밝기 ${Math.round(pixels.faceLuma * 100)}%`, '노출보정 +0.3'); }
+    const whole = pixels.imageLuma != null ? pixels.imageLuma : 1;
+    const relDark = pixels.faceLuma < whole - DIAG.FACE_REL; // L5: 전체 평균보다 뚜렷이 어두울 때만 bad
+    if (pixels.faceLuma < DIAG.FACE_BAD && relDark) { lights.face = 'bad'; add('bad', 'face', '얼굴 어두움' + est, `얼굴 밝기 ${Math.round(pixels.faceLuma * 100)}% (사진 전체 ${Math.round(whole * 100)}%)`, backlit ? '노출보정 +1' : '노출보정 +0.7 (역광이면 +1)'); }
+    else if (pixels.faceLuma < DIAG.FACE_WARN) { lights.face = 'warn'; add('warn', 'face', '얼굴 조금 어두움' + est, `얼굴 밝기 ${Math.round(pixels.faceLuma * 100)}%${pixels.faceLuma < DIAG.FACE_BAD ? ' (사진 전체가 어두운 톤)' : ''}`, '노출보정 +0.3'); }
   }
 
   // (d) 하이라이트
@@ -141,9 +151,9 @@ function diagnose(exif, pixels, cameraId, lensId) {
   if (!findings.some((f) => f.sev !== 'info')) add('info', 'ok', '설정은 문제없음', '구도·순간은 사람 몫', '');
 
   // (a) 상황·피사체 추정 → next
-  const g = hasExif ? guessScene(exif) : { ev: null, sceneId: null, lightId: null };
+  const g = hasExif ? guessScene(exif) : { ev: null, sceneId: null, lightId: null, confidence: null };
   const subjectGuess = hasExif && exif.exposureTime > 0 && exif.exposureTime <= DIAG.KID_SHUTTER ? 'kid' : 'still';
   const next = g.sceneId ? compute(cam.id, g.sceneId, subjectGuess, lens.id) : null;
 
-  return { lights, findings, sceneGuess: g.sceneId, subjectGuess, next, exifSummary: exifSummary(hasExif ? exif : null), ev100: g.ev, gear, cameraId: cam.id, lensId: lens.id };
+  return { lights, findings, sceneGuess: g.sceneId, sceneConfidence: g.confidence, subjectGuess, next, exifSummary: exifSummary(hasExif ? exif : null), ev100: g.ev, gear, cameraId: cam.id, lensId: lens.id };
 }
