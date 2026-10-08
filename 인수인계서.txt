@@ -1,76 +1,56 @@
-# 인수인계서 — 캐논 카메라 세팅 앱 프로젝트 (2026-10-07 기준)
+# 인수인계서 — 카메라 치트키 (캐논 세팅 앱) 프로젝트 (2026-10-08 기준)
 
 ## 0. 이 문서 사용법
-새 대화를 열고 이 문서를 통째로 붙여넣은 뒤 "이어서 하자"고 하면 됨. 클로드는 이전 대화를 기억 못 하므로 이 문서가 유일한 기억.
-프로젝트 폴더: C:\Users\User\OneDrive\바탕 화면\회사\00.연습\canon
-샘플 사진 원본: 위 폴더\sample (9장, 제미나이로 생성) → 앱 안 img/{styleId}.jpg로 복사됨
+새 대화를 열고 이 문서를 통째로 붙여넣은 뒤 "이어서 하자"고 하면 됨. 클로드는 이전 대화를 기억 못 하므로 이 문서와 저장소(CLAUDE.md, docs/)가 유일한 기억.
+- 저장소: https://github.com/mkkim0422/canon (main). 작업 폴더는 PC마다 다름 — 2026-10-08 현재 `C:\민규앱\canon`(GitHub 클론). 예전 OneDrive 폴더(`…\회사\00.연습\canon`)는 쓰지 않음.
+- **이 PC는 git autocrlf를 끄고 LF로 작업해야 check.js가 돈다** (`git config core.autocrlf false`). 새로 클론하면 같은 설정.
+- 안드로이드 네이티브 폴더 `C:\dev\canon6d2-app`은 이 PC에 없음(다른 PC). APK 절차는 CLAUDE.md '안드로이드 앱' 절.
+- 규칙·구조·원칙은 CLAUDE.md가 기준. 점검 결과는 docs/audit.md. 숫자 근거는 docs/facts.md. 매핑 규칙은 docs/match.md, 진단 규칙은 docs/diagnose.md.
+- 이 파일은 저장소에 커밋돼 있음. 저장소를 공개로 바꾸려면 1절(개인 정보)을 지우고 올릴 것.
 
 ## 1. 사용자 상황
-- 카메라: Canon EOS 6D Mark II. 렌즈: EF 24-105mm f/4L IS USM("이사백오", I형/II형 미확인 — 렌즈 앞 글자에 "II" 있으면 II형, IS 스톱 수만 다름) + EF 50mm f/1.8 STM("여친렌즈/쩜팔이", 갖고 있는데 잘 안 꺼냄).
-- 촬영 목적: 아이(5세 전후) + 인물. 오토로 찍으면 폰보다 못 나와서 수동 세팅을 배우고 싶음. 수동모드를 모름.
-- 호주 가족여행 12/29~1/18 (멜버른 8일 + 그레이트 오션로드 1박 + 시드니 12일, 어른2 아이1). 여행 가이드북 HTML은 별도로 만들어둠(아이폰에선 로컬 HTML 자바스크립트 미실행으로 안 열림 → Netlify Drop 올리면 해결, 아직 안 함).
-- 개발 도구: 클로드 코드. 사용자는 비개발자. 프롬프트는 한글로, 카메라 용어는 영어 병기.
-- 사용자 요청 방식: "결론 나기 전엔 프롬프트 쓰지 마라", "복사할 내용은 코드블록 하나로", "프롬프트는 보내기 전 3회 검수(논리/정합성/범위·순서)하고 검수 끝이라고 알려라".
+- 카메라: Canon EOS 6D Mark II. 렌즈: EF 24-105mm f/4L IS USM(I형/II형 미확인) + EF 50mm f/1.8 STM.
+- 촬영 목적: 아이(5세 전후) + 인물. 오토로 찍으면 폰보다 못 나와서 수동 세팅을 배우고 싶음.
+- 호주 가족여행 12/29~1/18. 여행 전까지 폰에서 쓸 수 있으면 됨.
+- 개발 도구: 클로드 코드. 사용자는 비개발자. 프롬프트는 한글, 카메라 용어는 영어 병기.
+- 요청 방식: "혼자 할 수 있는 건 먼저 다 해라", "결론 나기 전엔 프롬프트 쓰지 마라", "복사할 내용은 코드블록 하나로", "프롬프트는 보내기 전 3회 검수".
 
-## 2. 앱 개요
-- 단일 페이지 웹앱(index.html + css/style.css + js/*). 빌드·외부 라이브러리·웹폰트 금지(오프라인 원칙). 한국어, 모바일 한 손.
-- 목적: 상황(8개) × 피사체(2개) 고르면 현재 바디+렌즈 기준 Av 세팅(조리개·노출보정·ISO 자동 상한·최소 셔터)과 "다이얼 순서 3단계"를 10초 안에 보여줌.
-- 핵심 UX: C1/C2 커스텀 모드 등록. C1=가만히 있는 사람(Av, ISO 자동 상한 6400, 최소 셔터 1/125, One-Shot, 1점 AF, 단사), C2=움직이는 아이(최소 셔터 1/500, AI Servo, 존 AF, 고속 연사). 현장에선 "모드 다이얼 C1 → 메인 다이얼 조리개 → 퀵 컨트롤 다이얼 노출보정"만.
-- M 모드는 야경 배경 인물·실루엣만. M에선 ISO 수동, 노출보정 UI 숨김, 셔터·조리개·ISO 고정값 표시.
-- 디자인: 토스(Toss) 스타일. 배경 #f2f4f6, 카드 흰색 20px 모서리 테두리·그림자 없음, 포인트 #3182f6, 글자 #191f28/#333d4b/#8b95a1, Pretendard 폴백 스택, 핵심 숫자 32px tabular-nums, 이모지 금지(인라인 SVG 선 아이콘만). 상단 탭은 pill 세그먼트, 렌즈 선택은 파란 채움 pill 버튼(토글 아님). word-break: keep-all.
-- 앱 이름: 임시 "카메라 치트키"(localStorage 접두어 cck.). 후보: 다이얼(사용자가 "무슨 상관?"이라 반응 → 보류), 카메라 치트키(1픽), 세팅값, DSLR 설정. 부제 예: "DSLR 수동모드 설정 가이드". 키워드: 캐논,6D,DSLR,디에스엘알,수동모드,M모드,Av,조리개,셔터,ISO,노출보정,아웃포커싱,인물사진,아이사진,역광,출사,카메라입문.
+## 2. 앱 개요 (현재)
+- 단일 페이지 웹앱(index.html + css/style.css + js/*). 빌드·외부 라이브러리·웹폰트 금지(오프라인). 한국어, 모바일 한 손. 토스 스타일.
+- 홈 탭 3개: **상황으로**(8상황 × 2피사체 → Av 세팅 + 다이얼 순서) / **원하는 사진**(스타일 9) / **사진으로**('이 사진처럼 찍기' AI 매칭 + '내 사진 진단' 오프라인 EXIF·픽셀 진단).
+- 바디 10종(CAMERAS): 6D2, 5D4, R6 II, R50, R8, 90D, 80D, 6D, 200D II(250D), 850D. family(다이얼 문구 템플릿): ff2dial / crop2dial / crop1dial / rf / rf1dial / rf2dial. 렌즈 12종: EF 8 + RF 4. 조리개는 lens.portraitAp + scene.apRule.
+- C 모드 없는 바디(R50·850D·200D II)는 설정에 안내 카드, 최소 셔터 메뉴 없는 바디는 움직이는 아이를 M + ISO AUTO로. 6D는 최소 셔터 상한 1/250(minShutterCap).
+- 배포: claude.ai 아티팩트(폰용 링크, CLAUDE.md 참고) + 안드로이드(Capacitor). 아티팩트는 js 10개 + img 9장 전부 올려야 함.
 
-## 3. 파일 구조와 원칙 (CLAUDE.md에 반영됨)
-- docs/facts.md: 모든 숫자의 유일한 근거(6D2 스펙·메뉴 경로+매뉴얼 페이지·렌즈·EV 표·공식·자동 계산표·check.js용 json facts). 바디별 절(## EOS 6D Mark II, ## EOS 5D Mark IV …).
-- js/data.js: CAMERAS(배열), LENSES, LIGHTS(EV), SUBJECTS, SCENES(8), STYLES(9), SETUP. 숫자는 facts.md에 근거 있는 것만. 추정 EV는 est:true, 못 찾은 메뉴는 page 생략→UI "미확인".
-- js/exposure.js: compute(cameraId, sceneId, subjectId, lensId, override). EV100=log2(N²/t), t=N²·100/(S·2^EV), EC 반영 EV=EV−c. 핸드헬드 1/(환산초점거리), IS면 2^(isStops−2)배 여유, 상한 1/15. 1/3스톱 표준값 반올림. 플래그 isoCapped/tooDark/tooBright.
-- js/dials.js: 다이얼 문구를 family별 템플릿으로(ff2dial / crop2dial / crop1dial / rf). family는 내부 분류, UI 노출 금지.
-- js/app.js: 해시 라우팅(#home, #scene.id, #r.scene.subject, #style.id, #settings, 구분자 점). 마크업만.
-- check.js: node check.js → data.js 전체를 facts.md와 대조, 계산표 재생성, CAMERAS×LENSES(호환)×SCENES×SUBJECTS 전 조합에서 tooDark/tooBright 있으면 실패.
-- 원칙: Av 기본 / 시작값+현장 조정 규칙([조건, 조치] 쌍, 노출보정은 항상 "노출보정 ±x", ISO 상한 변경은 메뉴 경로 포함) / WB는 전 상황 AWB 분위기 우선(프리셋은 조정 규칙으로만) / 조리개는 lens.portraitAp + scene.apRule로 계산, 상황 데이터에 렌즈 id 직접 쓰지 않음 / 2탭 원칙 / 결과 화면 순서 ①다이얼 순서 ②숫자 ③AF ④현장 조정 ⑤왜 ⑥팁 / 바디 추가는 한 세션에 하나, 매뉴얼 원문 URL 필수, verified:true는 menu 11개 전부 page 있을 때만.
+## 3. 파일 구조와 원칙
+CLAUDE.md '파일' 절과 '깨지 말아야 할 원칙' 1~12 참고. 요지:
+- facts.md = 모든 숫자의 유일한 근거. 바디 추가는 매뉴얼(PDF 쪽수 또는 온라인 가이드 URL) → facts.md 절 + json → data.js → `node check.js` 통과 → 설정·결과 스크린샷.
+- AI('이 사진처럼')는 분류값만, 숫자는 compute()만, 노출보정은 현재 상황에서만. 진단('내 사진 진단')은 AI 미사용·오프라인, 임계값은 test-diag.html 근거 없이 안 바꿈.
+- 결과 화면 순서: 숫자 → 다이얼 순서 → 현장 조정 → 팁 → 왜. '이 세팅으로 찍기' 버튼은 두지 않음(override 손실).
+- 검증 도구: `node check.js`(데이터·계산·문구), test.html(매칭 9장, gemini 비교), test-diag.html(진단 36장 + 가짜 EXIF 7 + 실사진 img/real/1~9.jpg).
+- 스크린샷은 헤드리스 Chrome을 DevTools 프로토콜로 제어(가상 시간 모드는 createImageBitmap을 못 기다림). 로컬 서버 필요(python -m http.server).
 
-## 4. 데이터 요약
-- 상황 8: outdoorSunny(EV15) / outdoorShade(12) / backlit(얼굴=그늘 12, EC+1) / cloudyRain(12, EC+0.3) / indoorWindow(9 추정, EC+0.3) / indoorEvening(6) / cafe(6 추정) / nightPortrait(6 추정, M).
-- 피사체 2: kid(C2, 1/500, AI Servo, 존 AF, 연사) / still(C1, 1/125, One-Shot, 1점).
-- 스타일 9: softKid, rimLight, silhouette(M f/8 1/500 ISO100), windowHalf, freeze(1/1000), nightBokeh(최대개방 ISO3200), rainTone, cafeMood, familySelf(f/5.6, 삼각대, MF 고정). familySelf 샘플 사진은 오토처럼 보여서 교체 또는 스타일 교체 미결정.
-- 렌즈 EF 8: ef24105, ef50, ef85_18, ef50_14, ef35_2is, ef2470_28, ef70200_28, ef70200_4. RF 4: RF 50 f/1.8, RF 85 f/2 Macro IS, RF 24-105 f/4L IS, RF 35 f/1.8 Macro IS. portraitAp 규칙: f/1.4→2, f/1.8·2→2.2, f/2.8→2.8, f/4→4.
-- 야외 맑음: 1/4000 바디는 50mm가 f/3.2로 자동 조여짐(1/8000 바디는 f/2.2 유지).
-- 바디 계획 10종: 6D2(완료), 5D4(완료, ff2dial), R6 Mark II(진행 중, rf 템플릿), 그 다음 신형 우선: R50, R8, 그 후 90D(crop2dial, 프롬프트 이미 작성됨), 850D(crop1dial, 퀵 컨트롤 다이얼 없음·C 모드 없음), 6D, 80D, 200D II.
-- 매뉴얼 URL: 5D4 https://sg.canon/en/support/0302497001 / 90D https://gdlp01.c-wss.com/gds/3/0300036653/02/EOS_90D_Advanced_User_Guide_EN.pdf / R6II https://cam.start.canon/en/C012/manual/ (HTML, page 대신 URL 허용하도록 구조 확장 지시함).
+## 4. 완료된 작업 (시간순)
+A~F 데이터 검수·토스 디자인·C1/C2·설정 페이지 → G 렌즈 8종·portraitAp/apRule·다중 렌즈 체크·가로 스크롤 칩·recommend(한 번 유실됐다가 L1에서 재수행) → H CAMERAS 배열·family 템플릿·카메라 선택·RF 렌즈 → 5D4·R6 II → I-a/I-b/I-c '이 사진처럼 찍기'(exif·analyze·match·화면·Gemini 실제 연결) → J-a/J-b '내 사진 진단'(pixels·diagnose·화면) → K 전체 점검(docs/audit.md) → L1~L11 수정 → R50·R8·90D·80D·6D·200D II·850D 추가(계획 10종 완료).
 
-## 5. 완료된 작업 (순서대로)
-A~F: 데이터 검수 반영(HTP 삭제, M 모드 EC 숨김, tooDark 조합 제거, C1/C2 도입, EV 수정, 50mm 맑음 f/3.2, 렌즈 II 표기 제거), adjust [조건,조치] 구조, WB 통일, tips 표시, 셀프 가족사진 MF 단계, ISO/셔터 클릭 순서 자동 생성, 토스 디자인, 렌즈 pill 버튼, 첫 실행 C1·C2 등록 배너(setupDone), 설정 페이지 2그룹(공통 설정 / C1·C2 등록 9단계, Auto update set. Disable), pathKo(한글 메뉴명 추정) 병기, 샘플 사진 9장 img/ 연결.
-G: 렌즈 8종 + portraitAp/apRule 구조 + 다중 렌즈 체크 + 결과 화면 가로 스크롤 칩 + 스타일 recommend 조건.
-H: CAMERAS 배열 + family 템플릿(dials.js) + 카메라 선택 첫 화면 + RF 렌즈 4종 + 어댑터 표시 + 앱명 임시 변경.
-바디: 5D Mark IV 추가 완료. R6 Mark II 추가 프롬프트 보냄(완료 여부 확인 필요).
+## 5. 남은 투두
+1. **실측 3건(사용자 손 필요)**: ① Gemini API 키로 test.html gemini 모드 9장 비교 ② 6D2 실사진을 img/real/1~9.jpg에 넣고 S_LOW·얼굴·하이라이트 임계값 재검증 ③ 폰에서 10MB JPEG 진단 3초 목표·FaceDetector 동작 확인.
+2. **카메라에서 확인할 것**: 90D Auto range 최대의 하한값(지금 200 추정), 200D II 메뉴 탭 번호(지금 '촬영 탭'), 80D AWB 우선이 INFO 버튼인지(매뉴얼 p.163 기준).
+3. 앱 이름·부제 확정(임시 "카메라 치트키"), 스토어 설명문·키워드, 아이콘(SVG).
+4. familySelf 샘플 사진 교체 여부(오토처럼 보임).
+5. 24-105 I/II형 확인(IS 스톱 수).
+6. 안드로이드 패키징 재구축(이 PC에 네이티브 폴더 없음), 아이폰 패키징.
+7. 출시 전 Gemini 키 중계 서버(docs/release-notes.md) — 키가 앱 안에 있으면 추출 가능.
+8. 커뮤니티 홍보 글, 가격(1회 구매 + AI 분석 구독 검토).
+9. 보류: 호주 가이드북 아이폰 열기(Netlify Drop).
 
-## 6. 진행 중 / 다음 할 일
-현재: R6 Mark II 세션 끝나면 → 'I-a' 프롬프트(이 사진처럼 찍기 — 로직·데이터·테스트) 보내기로 함. 사용자 결정: 바디 추가보다 이 기능 먼저.
-I-a 내용 요약: js/exif.js(원본 File에서 EXIF 먼저 읽고 그다음 1024px 축소), js/analyze.js(mock/gemini 모드, validateFeatures), Features 스키마(light/lightConfidence/artificialLight/rimLight/dof/motion/focalFeel/subject/framing/color{saturation,warmth,contrast}/notes), js/mock-features.js(샘플 9장 JSON, basename 대소문자 무시 매칭), js/match.js(matchFeatures → settings/summary/sameSceneId/possible/impossible/lensWarning/colorTips/moveTip), docs/match.md(규칙표 a~j), test.html(9장 × 현재 상황 3개 표).
-핵심 규칙: AI 응답은 분류값만, 숫자는 compute()만, 노출보정은 현재 상황에서만(레퍼런스가 역광이라고 +1 주지 않음 — 이게 1차 프롬프트의 오류였고 수정됨), 빛 불일치는 impossible로(why/alt/link), artificialLight면 불가 고정 문구, window→sunny도 불가 추가.
-I-b(다음): 홈 3번째 탭 '이 사진처럼' 화면 3단계(사진 올리기→'지금 어디?' 상황+피사체(AI값 미리 선택)+'사진과 같은 곳' 버튼→결과: 요약/가능/불가/세팅/렌즈 경고/색감 카드), 설정에 분석 모드 mock/gemini + API 키 입력. 그 다음 2단계로 제미나이 API 실제 연결(무료 할당량으로 테스트, 사진은 저장하지 않음, 스토어 출시 시 키 숨길 중계 서버 필요).
-
-## 7. 남은 투두 전체
-1. R6 Mark II 완료 확인 → I-a → 검수 → I-b → 제미나이 연결
-2. 바디 추가: R50, R8, 90D, 850D, 6D, 80D, 200D II (한 세션에 하나)
-3. 전체 재검수(data.js, dials.js, facts.md, 바디별 결과 화면 캡처)
-4. 앱 이름·부제 확정, 스토어 설명문·키워드
-5. 앱 아이콘(SVG)
-6. familySelf 샘플 교체/스타일 교체 결정
-7. 24-105 I/II형 확인
-8. 안드로이드 패키징(Capacitor, 뒤로가기 처리 코드 이미 있음), 아이폰도 패키징 필수
-9. 커뮤니티 홍보 글(SLR클럽·맘카페)
-10. EXIF 사진 진단(흔들림/얼굴 어두움/하늘 날아감 3종, 온디바이스) — '이 사진처럼'과 매핑 코드 공유
-11. 가격: 1회 구매 ₩4,900~9,900 + AI 분석 구독 ₩2,900/월 30장 검토. 광고는 수익 거의 없고 UX 해침 → 안 함.
-12. 보류: 호주 가이드북 아이폰 열기(Netlify Drop)
-
-## 8. 결정 사항·하지 않기로 한 것
-- CCAPI(폰→카메라 와이파이 설정 전송): 매번 연결 번거롭고 6D2 미지원 → 안 함.
-- 카메라에 앱 설치·매직랜턴: 불가/위험 → 안 함.
-- 소니 크롭으로 기변: 인물 목적이면 아까움 → 쩜팔이로 먼저 테스트 권장. 85mm f/1.8 추가 추천.
+## 6. 결정 사항·하지 않기로 한 것
+- CCAPI(폰→카메라 설정 전송) 안 함(6D2 미지원). 카메라 펌웨어 개조 안 함. 광고 안 함.
+- Av 기본, M은 야경·실루엣만. 플래시는 다루지 않음. 하이라이트 톤 우선 권하지 않음.
+- 바디 추가는 한 세션에 하나(사용자가 "혼자 다 해"라고 하면 예외).
 - 당장 실전 세팅: 쩜팔이 + Av f/2.2~2.8 + ISO 자동 + 노출보정 +0.3.
 
-## 9. 검수에서 찾았던 오류 유형 (재발 방지용)
+## 7. 검수에서 찾았던 오류 유형 (재발 방지)
 - HTP 켜면 최저 ISO 200 → 맑음 f/4가 1/4000 초과 (삭제함)
 - M 모드에 노출보정 표시 (ISO 수동이면 의미 없음)
 - 기본 조합에 tooDark 플래그 출고
@@ -79,4 +59,7 @@ I-b(다음): 홈 3번째 탭 '이 사진처럼' 화면 3단계(사진 올리기�
 - tips 데이터가 화면에 안 나옴
 - 상황별 WB 프리셋이 C 모드에 저장 안 되는데 바꾸는 법 없음
 - 레퍼런스 사진 역광 → 노출보정 +1 (상황이 아니라 스타일에 EC를 준 오류)
-- 1024px 축소 후 EXIF 읽기 (순서 오류)
+- G 작업이 커밋 안 된 채 다른 폴더에서 이어져 저장소에서 유실 → 작업 끝엔 반드시 커밋·푸시
+- 50mm 전용 문구('f/4로 조이기')가 렌즈 무관하게 노출 → {apStop}·{maxShutter} 치환으로 일반화
+- 핸드헬드 여유가 exposure.js(×4 고정)·diagnose.js(2^(isStops−2))·facts.md에서 서로 달랐음 → 통일
+- 6D처럼 옛 기종은 메뉴 자체가 없는 항목(AWB 우선·안티플리커·최소 셔터 1/500)이 있음 → menu na + value/why 덮어쓰기, minShutterCap
