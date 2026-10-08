@@ -10,8 +10,6 @@ const DIAG = {
   EV_LOW_DIFF: 4,      // (a) 2 ≤ 차 < 4 → 'low'("(대략)"), 4 이상 → null
   AP_WIDE_MARGIN: 0.3,
   KID_SHUTTER: 1 / 500,
-  KID_ISO_MIN: 400,        // 셔터가 빨라도 ISO가 낮으면 맑은 날 인물일 뿐 → kid로 보지 않음
-  PEOPLE_SHUTTER: 1 / 125, // 사람 사진 셔터 하한. 손떨림 한계(IS 렌즈 1/15)보다 느슨해도 피사체가 움직인다
   BACKLIT_EC: 0.7,     // (a) shade/overcast에서 EC ≥ 이 값이면 backlit. (c)(d) 역광 사진 판정에도 같은 값
   FACE_REL: 0.10,      // (c) 얼굴 bad는 전체 평균보다 이만큼 어두울 때만
   IS_STOPS_DEFAULT: 4, // is: true 인데 isStops가 없는 렌즈(EF 24-105 IS). exposure.js CAMERA_COMMON.isStopsDefault와 같은 값
@@ -114,7 +112,6 @@ function diagnose(exif, pixels, cameraId, lensId) {
     if (highIso && slow) { lights.blur = 'warn'; add('warn', 'blur', '셔터가 한계보다 느림 (선명도는 노이즈로 판정 보류)', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 한계 ${fmtShutter(limit)}보다 느림. ISO ${exif.iso}라 선명도 계산을 믿을 수 없음`, `최소 셔터 ${fmtShutter(limit)} 이상, 흔들림은 확대해서 눈으로 확인`); }
     else if (highIso) { lights.blur = 'warn'; add('warn', 'blur', '선명도 판정 보류 (고감도 노이즈)', `ISO ${exif.iso}에서는 노이즈가 선명도 계산을 올려 판정이 어려움`, '확대해서 눈으로 확인. 다음엔 밝은 자리·밝은 렌즈로 ISO 낮추기'); }
     else if (low && slow) { lights.blur = 'bad'; add('bad', 'blur', '손떨림', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 핸드헬드 한계 ${fmtShutter(limit)}보다 느림`, `${cam.hasCModes ? cam.cModes.join('/') : 'ISO 자동'} 최소 셔터가 지켜졌는지, 또는 ISO 상한 올리기`); }
-    else if (low && exif.exposureTime > DIAG.PEOPLE_SHUTTER * 1.0001) { lights.blur = 'warn'; add('warn', 'blur', '피사체 움직임 (사람 사진엔 셔터가 느림)', `${fmtShutter(exif.exposureTime)}는 손떨림 한계 안이지만 사람이 움직이기엔 느림`, '최소 셔터 1/125 이상 (아이는 1/320)'); }
     else if (low && wideOpen) { lights.blur = 'bad'; add('bad', 'blur', '초점 빗나감 (심도 얕음)', `f/${exif.fNumber} 최대 개방 근처. 눈에서 몇 cm만 벗어나도 흐려짐`, 'f/2.2로 조이고 눈에 1점 AF'); }
     else if (low) { lights.blur = 'warn'; add('warn', 'blur', '초점 또는 피사체 움직임', `셔터 ${fmtShutter(exif.exposureTime)}는 충분한데 선명하지 않음`, `${cam.afModes.kid} + 연사`); }
     else if (slow) { lights.blur = 'warn'; add('warn', 'blur', '운 좋게 멈춤. 다음엔 위험', `${fmtShutter(exif.exposureTime)}는 ${Math.round(focal)}mm 한계 ${fmtShutter(limit)}보다 느림`, `최소 셔터 ${fmtShutter(limit)} 이상, 모자라면 ISO 상한 올리기`); }
@@ -136,9 +133,8 @@ function diagnose(exif, pixels, cameraId, lensId) {
   if (pixels && pixels.clipping) {
     const hl = pixels.clipping.highlights;
     const backlit = hasExif && (exif.ec || 0) >= DIAG.BACKLIT_EC;
-    const faceOk = lights.face === 'ok';   // 얼굴이 맞으면 배경 날아감은 정상 범위(창가·역광 상황이 그렇게 가르침) → warn까지만
-    if (hl > DIAG.HL_BAD && !backlit && !faceOk) { lights.highlights = 'bad'; add('bad', 'highlights', '하얗게 날아간 부분 많음', `밝기 250 이상 픽셀 ${(hl * 100).toFixed(1)}%`, '노출보정 −0.3, 해를 등지면 역광 상황으로'); }
-    else if (hl > DIAG.HL_WARN) { lights.highlights = 'warn'; add('warn', 'highlights', backlit ? '배경 날아감 (역광이라 정상 범위)' : (faceOk && hl > DIAG.HL_BAD ? '배경 날아감 (얼굴이 맞으면 정상)' : '하얗게 날아간 부분 있음'), `밝기 250 이상 픽셀 ${(hl * 100).toFixed(1)}%`, backlit ? '얼굴만 밝으면 됨. 배경을 살리려면 노출보정 −0.3' : '노출보정 −0.3'); }
+    if (hl > DIAG.HL_BAD && !backlit) { lights.highlights = 'bad'; add('bad', 'highlights', '하얗게 날아간 부분 많음', `밝기 250 이상 픽셀 ${(hl * 100).toFixed(1)}%`, '노출보정 −0.3, 해를 등지면 역광 상황으로'); }
+    else if (hl > DIAG.HL_WARN) { lights.highlights = 'warn'; add('warn', 'highlights', backlit ? '배경 날아감 (역광이라 정상 범위)' : '하얗게 날아간 부분 있음', `밝기 250 이상 픽셀 ${(hl * 100).toFixed(1)}%`, backlit ? '얼굴만 밝으면 됨. 배경을 살리려면 노출보정 −0.3' : '노출보정 −0.3'); }
   }
 
   // (e) 노이즈
@@ -158,8 +154,7 @@ function diagnose(exif, pixels, cameraId, lensId) {
 
   // (a) 상황·피사체 추정 → next
   const g = hasExif ? guessScene(exif) : { ev: null, sceneId: null, lightId: null, confidence: null };
-  // 빠른 셔터 + ISO 400 이상 = 최소 셔터가 강제된 흔적 → kid. 맑은 날 ISO 100에 1/2000은 그냥 밝은 것
-  const subjectGuess = hasExif && exif.exposureTime > 0 && exif.exposureTime <= DIAG.KID_SHUTTER && exif.iso >= DIAG.KID_ISO_MIN ? 'kid' : 'still';
+  const subjectGuess = hasExif && exif.exposureTime > 0 && exif.exposureTime <= DIAG.KID_SHUTTER ? 'kid' : 'still';
   const next = g.sceneId ? compute(cam.id, g.sceneId, subjectGuess, lens.id) : null;
 
   return { lights, findings, sceneGuess: g.sceneId, sceneConfidence: g.confidence, subjectGuess, next, exifSummary: exifSummary(hasExif ? exif : null), ev100: g.ev, gear, cameraId: cam.id, lensId: lens.id };

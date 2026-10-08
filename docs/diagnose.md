@@ -16,7 +16,7 @@ AI API를 쓰지 않는다. EXIF(js/exif.js) + 온디바이스 픽셀 분석(js/
 | findings | `[{ sev, key, title, detail, fix }]` 문제만. sev는 'bad' \| 'warn' \| 'info'. 정렬은 (g) |
 | sceneGuess | 상황 id 또는 null — (a) |
 | sceneConfidence | 'high' \| 'low'(화면에 "(대략)") \| null — (a) |
-| subjectGuess | 'kid' \| 'still' — 셔터 ≤ 1/500 **그리고 ISO ≥ 400**이면 kid(최소 셔터가 강제된 흔적), 아니면 still(맑은 날 ISO 100에 1/2000은 그냥 밝은 것) |
+| subjectGuess | 'kid' \| 'still' — 셔터 ≤ 1/500이면 kid, 아니면 still |
 | next | `compute(진단 바디, sceneGuess, subjectGuess, 진단 렌즈)` 또는 null(sceneGuess 없음·EXIF 없음) |
 | exifSummary | `f/1.8 · 1/60 · ISO 3200 · 50mm · 보정 0 · Av` 또는 null |
 | ev100, gear, cameraId, lensId | 보조 정보(역산 EV, 장비 매칭 결과, 실제 계산에 쓴 바디·렌즈 id) |
@@ -64,7 +64,6 @@ preSunset(13)은 후보에서 뺀다(실루엣 스타일 전용).
 | ISO ≥ isoUsable 그리고 느림 | warn | 셔터가 한계보다 느림 (선명도는 노이즈로 판정 보류) | 최소 셔터 limit 이상, 흔들림은 확대해서 눈으로 확인 |
 | ISO ≥ isoUsable (그 외) | warn | 선명도 판정 보류 (고감도 노이즈) | 확대해서 눈으로 확인. 다음엔 밝은 자리·밝은 렌즈로 ISO 낮추기 |
 | 낮음 그리고 느림 | bad | 손떨림 | C1/C2 최소 셔터가 지켜졌는지, 또는 ISO 상한 올리기 |
-| 낮음 그리고 t > 1/125 (손떨림 한계 안이라도 사람이 움직임) | warn | 피사체 움직임 (사람 사진엔 셔터가 느림) | 최소 셔터 1/125 이상 (아이는 1/320) |
 | 낮음 그리고 빠름 그리고 최대 개방 근처 | bad | 초점 빗나감 (심도 얕음) | f/2.2로 조이고 눈에 1점 AF |
 | 낮음 그리고 빠름 그리고 f 충분 | warn | 초점 또는 피사체 움직임 | AI Servo + 연사 (바디의 kid AF 명칭) |
 | 정상인데 느림 | warn | 운 좋게 멈춤. 다음엔 위험 | 최소 셔터 limit 이상, 모자라면 ISO 상한 올리기 |
@@ -87,8 +86,7 @@ preSunset(13)은 후보에서 뺀다(실루엣 스타일 전용).
 - faceEstimate(FaceDetector 없음)면 title 뒤에 ' (중앙 기준 추정)'.
 
 ### (d) 하늘·배경 (highlights)
-- clipping.highlights > 8% **그리고 lights.face ≠ 'ok'** → bad '하얗게 날아간 부분 많음' fix '노출보정 −0.3, 해를 등지면 역광 상황으로'.
-- highlights > 8%인데 얼굴이 ok → warn '배경 날아감 (얼굴이 맞으면 정상)' (앱의 창가·역광 상황이 "창이 하얗게 날아가도 됨"이라 가르치므로 모순 금지).
+- clipping.highlights > 8% → bad '하얗게 날아간 부분 많음' fix '노출보정 −0.3, 해를 등지면 역광 상황으로'.
 - 3% < highlights ≤ 8% → warn '하얗게 날아간 부분 있음' fix '노출보정 −0.3'.
 - 역광 사진(EC ≥ +0.7)은 배경 날아감이 정상이므로 **warn까지만**(title '배경 날아감 (역광이라 정상 범위)').
 

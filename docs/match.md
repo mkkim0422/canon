@@ -62,9 +62,9 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 ### (b) dof → 조리개 override · 렌즈 요구
 | dof | override | lensRequirement | possible |
 |---|---|---|---|
-| shallow | `{ apRule: 'portrait' }` (= lens.portraitAp) | `{ maxAp: 2.2 }` (또는 흐림 지수 ≥ 20, (i)) | 렌즈 조건 충족 시 `배경 강하게 흐림` / how: "f/{aperture}, 피사체와 배경 3m 이상 떼기". 줌 망원단으로 충족한 경우 how: "{환산 망원}mm로 당기고 f/{aperture}. 아이와 2m, 배경은 5m 이상" |
+| shallow | `{ apRule: 'portrait' }` (= lens.portraitAp) | `{ maxAp: 2.2 }` | 렌즈 조건 충족 시 `배경 강하게 흐림` / how: "f/{aperture}, 피사체와 배경 3m 이상 떼기" |
 | medium | `{ apRule: 'portrait' }` | 없음 | `적당한 배경 분리` / how: "f/{aperture}, 눈에 초점" |
-| deep | `{ aperture: 5.6 }` | 없음 | `앞뒤 모두 선명` / how: "f/{aperture}, 가운데 사람 얼굴에 초점". **compute 결과에 isoCapped·tooDark 플래그가 있으면 possible 대신 impossible** { what: '앞뒤 모두 선명 (f/5.6)', why: '지금 밝기에선 f/5.6이 ISO 상한을 넘김', alt: '낮 창가·야외에서, 또는 조명 전부 켜고', linkSceneId: 'indoorWindow' } |
+| deep | `{ aperture: 5.6 }` | 없음 | `앞뒤 모두 선명` / how: "f/{aperture}, 가운데 사람 얼굴에 초점" |
 
 ### (c) focalFeel → 렌즈 요구 · 이동 팁
 | focalFeel | lensRequirement | moveTip | possible |
@@ -79,7 +79,7 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 - motion 'blur'는 possible에 넣지 않고 notes에만: "흔들림 효과는 이 앱이 다루지 않음".
 
 ### (e) 역광 · 머리카락 테두리 빛
-- (rimLight true **그리고 artificialLight false**) 또는 light 'backlit' → sameSceneId 'backlit' (confidence 무관). 조명 장비로 만든 테두리 빛은 (g)가 처리하고 역광 상황으로 보내지 않는다.
+- rimLight true 또는 light 'backlit' → sameSceneId 'backlit' (confidence 무관).
 - 현재 상황이 backlit → possible `머리카락 테두리 빛 (해를 등지고)` / how: "해를 등지게 세우고 노출보정 {현재 상황 ec}".
 - 현재 상황이 indoorWindow → possible `{ what: '창을 등진 테두리 빛', how: '창을 등지고 서서 노출보정 +0.7' }`.
 - backlit·indoorWindow 외 상황 → impossible `{ what: '머리카락 테두리 빛', why: '햇빛을 등진 역광이라 지금 빛으론 안 됨', alt: '오후 4시 이후 창가·야외. 실내면 스탠드를 뒤쪽 45도에', linkSceneId: 'backlit' }`.
@@ -110,7 +110,7 @@ artificialLight true 또는 light 'studio' → impossible **맨 위 고정** `{ 
 colorTips.edit는 항상 "색감의 절반은 보정이에요. 라이트룸: …" 형식. ps 항목이 하나라도 있으면 possible에 `색감 (픽처스타일)` / how: ps 문자열.
 
 ### (i) lensRequirement 판정
-- maxAp: 현재 렌즈 apMin ≤ maxAp **또는 흐림 지수 ≥ 20**. 흐림 지수 = (렌즈 최대 초점거리 × crop) ÷ apMin = 입사동 지름(mm). 배경 흐림은 같은 구도에서 이 값에 비례하므로 105mm f/4(26)는 50mm f/2.2(23)만큼 흐려진다. 상수 BLUR_INDEX_MIN(data.js)=20. minFocal: 렌즈 최대 초점거리 × camera.crop ≥ minFocal.
+- maxAp: 현재 렌즈 apMin ≤ maxAp. minFocal: 렌즈 최대 초점거리 × camera.crop ≥ minFocal.
 - 현재 렌즈가 하나라도 미달이면 `lensWarning = { need, okLenses }`. need 예: "f/2.2 이하 밝은 렌즈", "85mm 이상 (환산)". okLenses는 ownedLensIds 중 바디 호환이면서 조건을 모두 만족하는 것. 없으면 need 끝에 "(내 렌즈 중엔 없음)".
 - lensWarning이 있는 항목의 possible은 넣지 않는다.
 

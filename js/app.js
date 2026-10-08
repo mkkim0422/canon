@@ -143,8 +143,7 @@ function renderCameraSelect(view, fromSettings) {
       ${CAMERAS.map((c) => `<button type="button" class="card press choose ${c.id === cur ? 'on' : ''}" data-camera="${c.id}"><b>${c.name}</b>${c.verified ? '' : '<small>검증 전 (값이 틀릴 수 있음)</small>'}</button>`).join('')}
     </div>
     <details class="more similar"><summary>목록에 없어요</summary>
-      <p class="lead small">버튼 배치가 비슷한 기종을 고르세요. 메뉴 쪽수는 다를 수 있어요.</p>
-      <div class="list">${SIMILAR.map((s) => `<button type="button" class="card press choose" data-camera="${s.to}"><b>${s.from}</b><small>→ ${byId(CAMERAS, s.to).name}로 (${s.why})</small></button>`).join('')}</div>
+      <p class="lead small">아직 검증된 기종만 있어요. 비슷한 기종을 고르면 다이얼 문구·메뉴 쪽수가 다를 수 있으니 참고만 하세요. 기종을 알려주시면 매뉴얼을 보고 추가합니다.</p>
     </details>`;
   view.querySelectorAll('[data-camera]').forEach((b) => b.addEventListener('click', () => {
     const next = b.dataset.camera;
@@ -154,16 +153,6 @@ function renderCameraSelect(view, fromSettings) {
     location.hash = fromSettings ? 'settings' : 'lenses';
   }));
 }
-
-// 목록에 없는 기종 → 버튼 배치가 비슷한 바디로 안내 (정확도는 그 바디 기준. 메뉴 쪽수는 다를 수 있음)
-const SIMILAR = [
-  { from: 'EOS 70D · 77D', to: 'eos80d', why: '2다이얼 크롭, C 모드' },
-  { from: 'EOS 800D · 750D · 760D', to: 'eos850d', why: '크롭, C 모드 없음' },
-  { from: 'EOS 100D · 200D · 4000D · 2000D', to: 'eos250d', why: '1다이얼, Av± 버튼' },
-  { from: 'EOS R10 · R100 · R7', to: 'eosr50', why: 'RF 크롭 미러리스' },
-  { from: 'EOS RP · R', to: 'eosr8', why: 'RF 풀프레임 2다이얼' },
-  { from: 'EOS 5D Mark III · 6D', to: 'eos6d', why: '풀프레임 DSLR' },
-];
 
 // ---------- 렌즈 체크 (첫 실행) ----------
 function renderLensCheck(view) {
@@ -319,12 +308,13 @@ function renderRefHome(view) {
     ${header('이 사진처럼 찍기', '#home', { noGear: true })}
     <section class="card">
       <p class="ref-lead">${ai ? '찍고 싶은 사진을 올리면 내 카메라·렌즈로 어떻게 찍을지 알려드려요' : '예시 사진에서 원하는 느낌을 고르면 내 카메라·렌즈로 어떻게 찍을지 알려드려요'}</p>
-      <p class="ref-note">${ai ? '분석 후 사진은 저장되지 않아요' : '내 사진 올리기는 설정 맨 아래 \'사진 분석 서버\'에서 AI 분석을 켜면 열려요'}</p>
+      <p class="ref-note">분석 후 사진은 저장되지 않아요</p>
     </section>
-    ${ai ? `<label class="btn press file ${offline ? 'off' : ''}">
+    <label class="btn press file ${offline ? 'off' : ''}">
       사진 올리기<input type="file" accept="image/*" id="refFile" ${offline ? 'disabled' : ''}>
     </label>
-    ${offline ? '<p class="foot center">이 기능은 인터넷이 필요해요</p>' : ''}` : ''}
+    ${offline ? '<p class="foot center">이 기능은 인터넷이 필요해요</p>' : ''}
+    ${ai ? '' : '<p class="foot center">지금은 예시 모드예요. 올린 사진은 AI 분석 없이 예시 중 하나로 매칭돼요 (설정 → 고급에서 AI 분석 켜기)</p>'}
     ${refSamplesRow()}`;
   const inp = $('refFile');
   if (inp) inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) refAnalyze(view, f); });
@@ -416,15 +406,16 @@ function renderRefPick(view) {
       <p class="ref-summary">${esc(s.summary || '분석 결과 없음')}</p>
       ${refExifLine(s.exif)}
     </section>
-    <h2 class="sec">누구를 찍나요?</h2>
-    <div class="lens-row" role="radiogroup" aria-label="피사체">
-      ${SUBJECTS.map((u) => `<button type="button" role="radio" aria-checked="${u.id === s.subject}" class="lens-btn ${u.id === s.subject ? 'on' : ''}" data-subject="${u.id}">${u.label}</button>`).join('')}
-    </div>
     <h2 class="sec">지금 어디서 찍나요? <span class="muted">(누르면 결과)</span></h2>
     ${same ? `<button type="button" class="card press scene same" data-scene="${same.id}"><span class="label-accent">사진과 같은 곳</span><b>${same.label}</b><small>${same.sub}</small></button>` : ''}
     <div class="grid">
       ${SCENES.map((sc) => `<button type="button" class="card press scene" data-scene="${sc.id}"><b>${sc.label}</b><small>${sc.sub}</small></button>`).join('')}
-    </div>`;
+    </div>
+    <h2 class="sec">누구를 찍나요?</h2>
+    <div class="lens-row" role="radiogroup" aria-label="피사체">
+      ${SUBJECTS.map((u) => `<button type="button" role="radio" aria-checked="${u.id === s.subject}" class="lens-btn ${u.id === s.subject ? 'on' : ''}" data-subject="${u.id}">${u.label}</button>`).join('')}
+    </div>
+    <p class="foot">상황을 누르면 바로 결과로 갑니다</p>`;
   view.querySelectorAll('[data-subject]').forEach((b) => b.addEventListener('click', () => {
     s.subject = b.dataset.subject; refSave(s);
     view.querySelectorAll('[data-subject]').forEach((x) => { const on = x.dataset.subject === s.subject; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
@@ -707,9 +698,7 @@ function bindFocus(view) {
 // 스타일의 recommend 조건을 현재 렌즈가 못 맞출 때만 안내. { need, ok: 내 렌즈 중 맞는 것 } 또는 null
 function recommendHint(style, cam, lens) {
   const rc = style.recommend || {};
-  // 배경 흐림은 (초점거리 × 크롭) ÷ 조리개(입사동 지름)에 비례: 50mm f/2.2 ≈ 23, 105mm f/4 ≈ 26 → 망원 줌도 밝은 단렌즈만큼 흐려진다 (match.md (i))
-  const blurIdx = (l) => Math.round(l.tele * cam.crop) / l.apMin;
-  const meets = (l) => (rc.maxAp == null || l.apMin <= rc.maxAp || blurIdx(l) >= BLUR_INDEX_MIN) && (rc.minFocal == null || Math.round(l.tele * cam.crop) >= rc.minFocal) && (rc.maxWide == null || Math.round(l.wide * cam.crop) <= rc.maxWide);
+  const meets = (l) => (rc.maxAp == null || l.apMin <= rc.maxAp) && (rc.minFocal == null || Math.round(l.tele * cam.crop) >= rc.minFocal) && (rc.maxWide == null || Math.round(l.wide * cam.crop) <= rc.maxWide);
   if (meets(lens)) return null;
   const need = [rc.maxAp != null && lens.apMin > rc.maxAp ? `f/${rc.maxAp} 이하 밝은 렌즈` : null,
     rc.minFocal != null && Math.round(lens.tele * cam.crop) < rc.minFocal ? `${rc.minFocal}mm 이상` : null,
@@ -879,7 +868,8 @@ function renderSettings(view) {
     ['메모리 카드', 'UHS-I U3 / V30 이상', '느린 카드는 연사 중 멈춤. 아이 사진은 연사가 생명.'],
     ownedLensIds(cam).some((id) => (byId(LENSES, id) || {}).is) ? ['렌즈 스위치', 'AF · STABILIZER ON', '아이 손이 스위치를 MF·OFF로 밀어 두는 일이 가장 흔한 "고장".'] : null,
   ].filter(Boolean);
-  const onceCards = once.map(([t, v, w], i) => card(i + 1, t, v, '', [], null, w, null, 'o' + i)).join('').replace(/<em class="warn">메뉴 위치 미확인<\/em>/g, '');
+  // 메뉴 경로가 있는 항목(하이라이트 경고)은 바디별 쪽수를 아직 안 찾았으니 '미확인' 표시를 그대로 둔다(원칙 8)
+  const onceCards = once.map(([t, v, w], i) => card(i + 1, t, v, '', [], null, w, null, 'o' + i)).join('');
 
   let cmodes;
   if (cam.hasCModes) {
