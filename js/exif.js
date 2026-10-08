@@ -32,6 +32,8 @@ function parseExif(buf) {
   while (off + 4 <= buf.byteLength) {
     if (v.getUint8(off) !== 0xFF) return null;
     const marker = v.getUint8(off + 1);
+    if (marker === 0xFF) { off += 1; continue; }                       // fill byte(0xFF 연속)는 마커가 아님
+    if (marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { off += 2; continue; } // TEM/RSTn: 길이 필드 없음
     if (marker === 0xDA || marker === 0xD9) return null; // SOS/EOI: 이미지 데이터 시작, Exif 없음
     const len = v.getUint16(off + 2);
     if (marker === 0xE1 && off + 10 <= buf.byteLength && v.getUint32(off + 4) === 0x45786966 /* 'Exif' */) {
@@ -52,9 +54,11 @@ function parseTiff(buf, tiffStart, end) {
   const out = { make: null, model: null, lens: null, fNumber: null, exposureTime: null, iso: null, ec: null, focal: null, program: null, flash: null, meteringMode: null, exposureMode: null };
   const ascii = (p, n) => { let s = ''; for (let i = 0; i < n; i++) { const c = v.getUint8(p + i); if (!c) break; s += String.fromCharCode(c); } return s.trim(); };
 
+  const seen = new Set();   // 손상된 파일이 자기 자신을 가리켜도 무한 재귀하지 않게
   function readIfd(ifdOff) {
-    if (ifdOff + 2 > end) return;
-    const n = u16(ifdOff);
+    if (ifdOff + 2 > end || seen.has(ifdOff) || seen.size > 8) return;
+    seen.add(ifdOff);
+    const n = Math.min(u16(ifdOff), 512);
     for (let i = 0; i < n; i++) {
       const e = ifdOff + 2 + i * 12;
       if (e + 12 > end) return;

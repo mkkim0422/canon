@@ -58,8 +58,8 @@ function guessScene(exif) {
 
 function exifSummary(exif) {
   if (!exif) return null;
-  const p = [exif.fNumber != null && `f/${exif.fNumber}`, exif.exposureTime != null && fmtShutter(exif.exposureTime), exif.iso != null && `ISO ${exif.iso}`,
-    exif.focal != null && `${Math.round(exif.focal)}mm`, exif.ec != null && `보정 ${fmtEC(exif.ec)}`, exif.program || null].filter(Boolean);
+  const p = [exif.fNumber > 0 && `f/${exif.fNumber}`, exif.exposureTime > 0 && fmtShutter(exif.exposureTime), exif.iso > 0 && `ISO ${exif.iso}`,
+    exif.focal > 0 && `${Math.round(exif.focal)}mm`, exif.ec != null && `보정 ${fmtEC(exif.ec)}`, exif.program || null].filter(Boolean);
   return p.length ? p.join(' · ') : null;
 }
 
@@ -67,7 +67,7 @@ function diagnose(exif, pixels, cameraId, lensId) {
   const findings = [];
   const add = (sev, key, title, detail, fix) => findings.push({ sev, key, title, detail, fix });
   const lights = { blur: 'ok', face: 'ok', highlights: 'ok', noise: 'ok', mode: 'ok' };
-  const hasExif = !!(exif && (exif.fNumber != null || exif.exposureTime != null || exif.iso != null));
+  const hasExif = !!(exif && (exif.fNumber > 0 || exif.exposureTime > 0 || exif.iso > 0));
   const curCam = byId(CAMERAS, cameraId), curLens = byId(LENSES, lensId);
 
   // 장비: EXIF 바디·렌즈가 현재 선택과 다르면 info. 목록에 있으면 그 id로 계산, 없으면 현재 선택.

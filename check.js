@@ -15,8 +15,8 @@ if (!m) { console.error('facts.md에 ```json facts 블록이 없음'); process.e
 const F = JSON.parse(m[1]);
 
 // 2) data.js + exposure.js + dials.js 로드
-const src = ['data.js', 'exposure.js', 'dials.js'].map((f) => fs.readFileSync(path.join(root, 'js', f), 'utf8')).join('\n') +
-  '\n;({ CAMERA_COMMON, CAMERAS, APERTURES, SHUTTERS, ISOS, WB, LENSES, LIGHTS, SUBJECTS, SCENES, STYLES, SETUP_COMMON, SETUP_CMODE_STEPS, compute, flagRules, fmtShutter, fmtEC, lensCompatible, compatibleLenses, DIALS, dialSteps })';
+const src = ['data.js', 'exposure.js', 'dials.js', 'mock-features.js'].map((f) => fs.readFileSync(path.join(root, 'js', f), 'utf8')).join('\n') +
+  '\n;({ CAMERA_COMMON, CAMERAS, APERTURES, SHUTTERS, ISOS, WB, LENSES, LIGHTS, SUBJECTS, SCENES, STYLES, SETUP_COMMON, SETUP_CMODE_STEPS, MOCK_FEATURES, compute, flagRules, fmtShutter, fmtEC, lensCompatible, compatibleLenses, DIALS, dialSteps })';
 const D = vm.runInNewContext(src, {});
 
 const fails = [], warns = [];
@@ -163,10 +163,38 @@ for (const c of D.CAMERAS) for (const [k, e] of Object.entries(c.menu)) {
   if (OPTIONAL_MENU_KEYS.includes(k) && e.page != null && F.cameras[c.id] && !F.cameras[c.id].menuPages.includes(e.page)) (c.verified ? fail : warn)(`CAMERAS.${c.id}.menu.${k}: 페이지가 facts.md에 없음`);
 }
 for (const s of D.SETUP_COMMON) if (/하이라이트 톤 우선|Highlight tone/.test(s.title)) fail('SETUP에 하이라이트 톤 우선 금지 (최저 ISO 200 → 야외 맑음 1/4000 초과)');
-for (const c of D.CAMERAS.filter((x) => x.hasCModes)) for (const s of D.SETUP_CMODE_STEPS) {
+const STEP_FIELDS = ['title', 'value', 'path', 'pathKo', 'pageKey', 'pageKeys', 'menuKey', 'menuKeys', 'pathSuffix', 'why', 'note', 'rf'];
+for (const base of D.SETUP_CMODE_STEPS) for (const k of Object.keys(base)) {
+  if (!STEP_FIELDS.includes(k) && !FAMILIES.includes(k) && !D.CAMERAS.some((c) => c.id === k)) fail(`SETUP_CMODE_STEPS '${base.title}': 키 '${k}'는 필드·family·바디 id 중 하나가 아님`);
+}
+for (const c of D.CAMERAS.filter((x) => x.hasCModes)) for (const base of D.SETUP_CMODE_STEPS) {
+  const s = Object.assign({}, base, base[c.family] || (c.mount === 'RF' ? base.rf : null) || {}, base[c.id] || {});   // app.js renderSettings와 같은 합성
   const keys = [].concat(s.pageKey || [], s.pageKeys || []);
   for (const k of keys) if (!c.pages || c.pages[k] == null) (c.verified ? fail : warn)(`CAMERAS.${c.id}.pages.${k} 없음 (C 모드 단계 '${s.title}')`);
   for (const k of [].concat(s.menuKey || [], s.menuKeys || [])) if (!c.menu[k]) fail(`CAMERAS.${c.id}.menu.${k} 없음 (C 모드 단계 '${s.title}')`);
+}
+// 9b) 문구 안 플레이스홀더·「이름」 링크·EXIF 모델명·예시 특징
+const TOKENS = ['isoUsable', 'isoHard', 'c1', 'c2', 'afStill', 'afKid', 'afAreaStill', 'afAreaKid', 'burst', 'shutterBase', 'isoSteps', 'shutterSteps', 'apStop', 'maxShutter', 'isoDial', 'minShutterSet', 'isoLabel'];
+const NAMES = new Set(D.SCENES.map((s) => s.label).concat(D.STYLES.map((s) => s.title), D.SUBJECTS.map((s) => s.label)));   // 피사체 label은 링크 없이 강조만
+function walkStrings(v, label, fn) {
+  if (typeof v === 'string') fn(v, label);
+  else if (Array.isArray(v)) v.forEach((x, i) => walkStrings(x, `${label}[${i}]`, fn));
+  else if (v && typeof v === 'object') for (const k of Object.keys(v)) walkStrings(v[k], `${label}.${k}`, fn);
+}
+walkStrings({ SCENES: D.SCENES, STYLES: D.STYLES, SUBJECTS: D.SUBJECTS, SETUP_COMMON: D.SETUP_COMMON, SETUP_CMODE_STEPS: D.SETUP_CMODE_STEPS, CAMERAS_MENU: D.CAMERAS.map((c) => c.menu) }, '', (str, label) => {
+  for (const m of str.matchAll(/\{([a-zA-Z0-9]+)\}/g)) if (!TOKENS.includes(m[1])) fail(`${label}: 모르는 플레이스홀더 {${m[1]}}`);
+  for (const m of str.matchAll(/「([^」]+)」/g)) if (!NAMES.has(m[1])) fail(`${label}: 「${m[1]}」는 상황 label·스타일 title·피사체 label에 없음`);
+});
+{
+  const mk = Object.keys(D.MOCK_FEATURES || {}).sort().join(','), sk = D.STYLES.map((s) => s.id).sort().join(',');
+  if (mk !== sk) fail(`MOCK_FEATURES 키(${mk}) ≠ STYLES id(${sk})`);
+  const seenModel = new Map();
+  for (const c of D.CAMERAS) {
+    if (c.exifModels == null) continue;
+    if (!Array.isArray(c.exifModels) || !c.exifModels.length || c.exifModels.some((x) => typeof x !== 'string' || !x.trim())) fail(`CAMERAS.${c.id}.exifModels는 비지 않은 문자열 배열`);
+    else for (const x of c.exifModels) { const k = x.toLowerCase(); if (seenModel.has(k)) fail(`exifModels '${x}'가 ${seenModel.get(k)}·${c.id} 둘에 있음`); seenModel.set(k, c.id); }
+  }
+  for (const c of D.CAMERAS) if (!c.isoDial && !['ff2dial', 'crop2dial'].includes(c.family)) fail(`CAMERAS.${c.id}.isoDial 필요 ({isoDial} 치환. 기본 문구 'ISO 버튼 → 메인 다이얼'은 2다이얼 DSLR만)`);
 }
 
 // 10) 다이얼 템플릿: family 4종 모두 av/m이 문자열 배열을 돌려주는지

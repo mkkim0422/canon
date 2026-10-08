@@ -46,7 +46,7 @@ const CAMERAS = [
       imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 169 },
       isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Auto range', page: 181 },
       minShutter:   { path: 'MENU → 촬영 2탭 → ISO speed settings → Min. shutter spd.', page: 182 },
-      pictureStyle: { path: 'Picture Style 버튼(뒷면) 또는 MENU → 촬영 3탭 → Picture Style → 인물 → INFO 버튼', page: 183 },
+      pictureStyle: { path: 'Picture Style 버튼(뒷면) 또는 MENU → 촬영 3탭 → Picture Style → 인물 → INFO 버튼', page: 187 },
       wb:           { path: 'MENU → 촬영 2탭 → White balance', page: 192 },
       awbPriority:  { path: 'MENU → 촬영 2탭 → White balance → AWB 선택 후 INFO 버튼 → Ambience priority', page: 194 },
       alo:          { path: 'MENU → 촬영 2탭 → Auto Lighting Optimizer', page: 201 },
@@ -68,7 +68,7 @@ const CAMERAS = [
     isoDial: 'ISO 버튼 → 퀵 컨트롤 다이얼 2 한 클릭씩 올리기',
     afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 12,
     menu: {
-      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0030.html' },
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0030.html', note: 'RAW는 메인 다이얼, JPEG는 퀵 컨트롤 다이얼 1.' },
       isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Auto range', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0100.html' },
       minShutter:   { path: 'MENU → 촬영 2탭 → ISO speed settings → Min. shutter spd.', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0100.html' },
       pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → Portrait → INFO(세부 조정)', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0230.html' },
@@ -80,7 +80,7 @@ const CAMERAS = [
       customMode:   { path: 'MENU → 설정(공구) 6탭 → Custom shooting mode (C1-C3) → Register settings', page: 'https://cam.start.canon/en/C012/manual/html/UG-08_Set-up_0330.html' },
       lensAdapter:  { path: 'EF/EF-S 렌즈는 마운트 어댑터 EF-EOS R에 끼워 장착 (EF-M 렌즈 불가)', page: 'https://cam.start.canon/en/C012/manual/html/UG-01_Preparations_0080.html' },
       // 미러리스 전용 항목 (DSLR 바디엔 없음 → 설정 화면에서 자동 숨김)
-      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Enable(Auto)', page: 'https://cam.start.canon/en/C012/manual/html/UG-05_AF-Drive_0060.html' },
+      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Auto', page: 'https://cam.start.canon/en/C012/manual/html/UG-05_AF-Drive_0060.html' },
       shutterMode:   { path: 'MENU → 촬영 7탭 → Shutter mode → Mechanical', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0370.html' },
       afOperation:   { path: 'MENU → AF 1탭 → AF operation', page: 'https://cam.start.canon/en/C012/manual/html/UG-05_AF-Drive_0040.html' },
       afArea:        { path: 'MENU → AF 1탭 → AF area', page: 'https://cam.start.canon/en/C012/manual/html/UG-05_AF-Drive_0060.html' },
@@ -116,8 +116,8 @@ const CAMERAS = [
       customMode:   { path: '스틸용 C 모드 없음 (설정 5탭 Custom shooting mode (C mode)는 동영상 모드에서만 표시)', page: 'https://cam.start.canon/en/C011/manual/html/UG-09_Set-up_0250.html' },
       lensAdapter:  { path: 'EF/EF-S 렌즈는 마운트 어댑터 EF-EOS R에 끼워 장착 (EF-M 렌즈 불가)', page: 'https://cam.start.canon/en/C011/manual/html/UG-01_Preparations_0070.html' },
       // 미러리스 전용 항목. title/value/why는 SETUP_COMMON 기본 문구를 이 바디에서만 덮어쓴다 (app.js renderSettings)
-      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Enable', page: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0060.html',
-        value: 'Subject to detect → People, Eye detection → Enable' },
+      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → 켜기', page: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0060.html',
+        value: 'Subject to detect → People, Eye detection → 켜기', note: 'R50 눈 검출 옵션의 영문 이름은 온라인 가이드 본문에 없어 미확인. 꺼짐이 아닌 쪽으로.' },
       shutterMode:   { path: 'MENU → 촬영 6탭 → Shutter mode → Elec. 1st-curtain', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0300.html',
         title: '셔터 모드 전자 선막', value: 'Elec. 1st-curtain',
         why: '이 기종은 기계식 셔터가 없음. 전자 선막이 기본값이고 앱의 셔터 상한 1/4000은 이 기준. Electronic은 1/8000까지 되지만 실내 LED 플리커·롤링 셔터 왜곡이 생길 수 있음.' },
@@ -142,7 +142,7 @@ const CAMERAS = [
     shutterBase: 'Elec. 1st-curtain',   // 기계식 셔터 없음 → C 모드 단계 연사 문구 {shutterBase}
     afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 6,   // High-speed continuous + 전자 선막 약 6.0컷/초 (전자셔터 40은 앱 미사용)
     menu: {
-      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0030.html' },
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0030.html', note: 'RAW는 메인 다이얼, JPEG는 퀵 컨트롤 다이얼.' },
       isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Auto range', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0100.html' },
       minShutter:   { path: 'MENU → 촬영 2탭 → ISO speed settings → Min. shutter spd.', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0100.html' },
       pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → Portrait → INFO(세부 조정)', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0230.html' },
@@ -154,7 +154,7 @@ const CAMERAS = [
       customMode:   { path: 'MENU → 설정(공구) 5탭 → Custom shooting mode (C1, C2) → Register settings', page: 'https://cam.start.canon/en/C013/manual/html/UG-08_Set-up_0290.html' },
       lensAdapter:  { path: 'EF/EF-S 렌즈는 마운트 어댑터 EF-EOS R에 끼워 장착 (EF-M 렌즈 불가)', page: 'https://cam.start.canon/en/C013/manual/html/UG-01_Preparations_0070.html' },
       // 미러리스 전용 항목
-      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Enable(Auto)', page: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0060.html' },
+      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Auto', page: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0060.html' },
       shutterMode:   { path: 'MENU → 촬영 7탭 → Shutter mode → Elec. 1st-curtain', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0370.html',
         title: '셔터 모드 전자 선막', value: 'Elec. 1st-curtain',
         why: '이 기종은 기계식 셔터가 없음. 전자 선막이 기본값이고 앱의 셔터 상한 1/4000·연사 6컷/초는 이 기준. Electronic은 40컷/초·1/16000까지 되지만 실내 LED 플리커·롤링 셔터 왜곡이 생길 수 있음.' },
@@ -227,7 +227,7 @@ const CAMERAS = [
     burstLabel: '연속',       // 고속 연사 모드 없음. 연속 약 4.5컷/초 (p.98)
     afModes: { still: 'One-Shot', kid: 'AI Servo' }, afAreaStill: '1점 (수동 선택)', afAreaKid: '자동 선택 (11점)', burstFps: 4.5,
     menu: {
-      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 102 },
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 102, note: 'RAW는 메인 다이얼, JPEG는 멀티 컨트롤러 좌우.' },
       isoAutoRange: { path: 'MENU → 촬영 3탭 → ISO speed settings → Auto ISO range', page: 110, value: 'Auto ISO range → Maximum {isoUsable}' },
       minShutter:   { path: 'MENU → 촬영 3탭 → ISO speed settings → Min. shutter spd. (1/250–1초만 가능)', page: 111 },
       pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → 인물 → INFO 버튼', page: 115, value: '인물(Portrait) 선택 → INFO → 샤프니스 +1, 채도 +1 (이 기종은 샤프니스 슬라이더 하나)' },
@@ -539,7 +539,7 @@ const SETUP_COMMON = [
   { key: 'lensAdapter', title: '마운트 어댑터', value: 'EF 렌즈를 쓸 때 EF-EOS R 어댑터 장착', pathKo: '해당 없음', onlyMount: 'RF',
     why: 'RF 바디에 EF 렌즈를 쓰려면 어댑터가 필요함. 노출·AF 동작은 동일.' },
   // onlyIf: camera.menu에 그 키가 있는 바디에서만 표시 (미러리스 전용)
-  { key: 'subjectDetect', title: '피사체 검출 사람 + 눈 검출', value: 'Subject to detect → People, Eye detection → Enable (Auto)', pathKo: '검출할 피사체 / 눈 검출', onlyIf: 'subjectDetect',
+  { key: 'subjectDetect', title: '피사체 검출 사람 + 눈 검출', value: 'Subject to detect → People, Eye detection → Auto', pathKo: '검출할 피사체 / 눈 검출', onlyIf: 'subjectDetect',
     why: '화면 어디에 있든 사람 눈을 자동으로 잡음. 측거점을 고를 필요가 없어짐. 아이용 세트(Whole area AF + Servo AF)의 전제.' },
   { key: 'shutterMode', title: '셔터 모드 기계식', value: 'Mechanical', pathKo: '셔터 방식', onlyIf: 'shutterMode',
     why: '전자셔터는 실내 LED·형광등에서 줄무늬(플리커)와 빠른 움직임의 일그러짐(롤링 셔터)이 생길 수 있음. 앱의 셔터·연사 값은 기계식 기준.' },

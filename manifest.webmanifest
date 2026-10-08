@@ -1,0 +1,17 @@
+{
+  "name": "카메라 치트키",
+  "short_name": "치트키",
+  "description": "캐논 카메라로 아이·인물 찍을 때 상황별 Av 세팅과 다이얼 순서",
+  "lang": "ko",
+  "start_url": "./index.html#home",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f4f6",
+  "theme_color": "#3182f6",
+  "icons": [
+    { "src": "img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

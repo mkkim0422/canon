@@ -173,15 +173,15 @@ async function analyzeWithGemini(file, opts = {}) {
     clearTimeout(timer);
     throw new Error(e && e.name === 'AbortError' ? '응답이 없어요(20초). 다시 시도' : '네트워크 오류. 인터넷 연결을 확인해 주세요');
   }
-  clearTimeout(timer);
   if (!res.ok) {
+    clearTimeout(timer);
     if (GEMINI_DEBUG) { try { console.warn('gemini http', res.status, (await res.text()).slice(0, 300)); } catch (e) { /* 무시 */ } }
     if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error('API 키를 확인해 주세요');
     if (res.status === 429) throw new Error('요청이 많아요. 잠시 후 다시');
     throw new Error('분석 서버 오류');
   }
   let json;
-  try { json = await res.json(); } catch (e) { throw new Error('응답 형식 오류'); }
+  try { json = await res.json(); } catch (e) { throw new Error(e && e.name === 'AbortError' ? '응답이 없어요(20초). 다시 시도' : '응답 형식 오류'); } finally { clearTimeout(timer); }
   const cand = json && Array.isArray(json.candidates) ? json.candidates[0] : null;
   const blocked = (json && json.promptFeedback && json.promptFeedback.blockReason) || (cand && GEMINI_BLOCKED.test(cand.finishReason || ''));
   if (!cand || blocked) throw new Error('이 사진은 분석할 수 없어요. 다른 사진으로');

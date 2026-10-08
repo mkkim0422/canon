@@ -5,7 +5,9 @@
   --card-press: #eef0f3;
   --title: #191f28;
   --body: #333d4b;
-  --sub: #8b95a1;
+  --sub: #6b7684;        /* 흰 배경 대비 4.6:1 (AA). 예전 #8b95a1은 2.9:1 */
+  --sub-weak: #8b95a1;   /* 장식·비활성용 */
+  --ok: #15803d; --ok-bg: #22c55e; --caution: #b45309; --caution-bg: #f59e0b;
   --seg: #e5e8eb;
   --pill: #e5e8eb;
   --accent: #3182f6;
@@ -16,12 +18,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #17171c; --card: #202027; --card-press: #2a2a33; --title: #f2f4f6; --body: #c3c8cf; --sub: #8b95a1;
-    --seg: #2c2c35; --pill: #2c2c35; --accent: #4593fc; --accent-press: #3182f6; --warn: #ff5b66; --flash: #1f2d44; color-scheme: dark;
+    --seg: #2c2c35; --pill: #2c2c35; --accent: #4593fc; --accent-press: #3182f6; --warn: #ff5b66; --flash: #1f2d44; --sub-weak: #6b7684; --ok: #4ade80; --ok-bg: #22c55e; --caution: #fbbf24; --caution-bg: #f59e0b; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #17171c; --card: #202027; --card-press: #2a2a33; --title: #f2f4f6; --body: #c3c8cf; --sub: #8b95a1;
-  --seg: #2c2c35; --pill: #2c2c35; --accent: #4593fc; --accent-press: #3182f6; --warn: #ff5b66; --flash: #1f2d44; color-scheme: dark;
+  --seg: #2c2c35; --pill: #2c2c35; --accent: #4593fc; --accent-press: #3182f6; --warn: #ff5b66; --flash: #1f2d44; --sub-weak: #6b7684; --ok: #4ade80; --ok-bg: #22c55e; --caution: #fbbf24; --caution-bg: #f59e0b; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -41,7 +43,7 @@ body {
 .banner:active { background: var(--accent-press); }
 .tips p { margin: 0; }
 .tips p + p { margin-top: 8px; }
-.caption { font-size: 11px; color: var(--sub); margin: -8px 0 16px !important; }
+.caption { font-size: 12px; color: var(--sub); margin: -8px 0 16px !important; }
 .rule.full .c { display: none; }
 .rule.full .a { grid-column: 1 / -1; }
 .setup .ko { color: var(--sub); }
@@ -65,10 +67,10 @@ b { font-weight: 600; color: var(--title); }
 .bar { display: flex; align-items: center; gap: 12px; padding: 12px 0 24px; }
 .bar h1 { flex: 1; min-width: 0; margin: 0; font-size: 24px; line-height: 1.3; font-weight: 700; color: var(--title); text-wrap: balance; }
 .bar.sub { padding-top: 8px; }
-.icon-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 12px; color: var(--title); flex: 0 0 36px; }
-.bar .icon-btn:first-child { margin-left: -8px; }
-.bar .icon-btn:last-child { margin-right: -8px; }
-.pill { display: inline-block; background: var(--pill); color: var(--body); font-size: 14px; line-height: 20px; padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
+.icon-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; color: var(--title); flex: 0 0 44px; border: 0; background: transparent; cursor: pointer; }
+.bar .icon-btn:first-child { margin-left: -12px; }
+.bar .icon-btn:last-child { margin-right: -12px; }
+.pill { display: inline-block; background: var(--pill); color: var(--body); font-size: 14px; line-height: 20px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
 .pill:active { background: var(--card-press); }
 
 /* pill형 세그먼트 탭 (상황 / 원하는 사진). 렌즈 버튼은 채워진 파란 pill이라 구분됨 */
@@ -85,11 +87,11 @@ b { font-weight: 600; color: var(--title); }
 .lens-row.scroll .lens-btn { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
 .lens-row.scroll .lbl { flex: 0 0 auto; }
 .lens-row .lbl { font-size: 13px; color: var(--sub); margin-right: 4px; }
-.lens-btn { font: inherit; letter-spacing: inherit; font-size: 14px; font-weight: 600; height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: var(--pill); color: var(--body); transition: background-color .15s; }
+.lens-btn { font: inherit; letter-spacing: inherit; font-size: 14px; font-weight: 600; height: 40px; padding: 0 16px; border: 0; border-radius: 20px; background: var(--pill); color: var(--body); transition: background-color .15s; }
 .lens-btn.on { background: var(--accent); color: #fff; }
 .lens-btn:active { background: var(--card-press); }
 .lens-btn.on:active { background: var(--accent-press); }
-.seg button:focus-visible, a:focus-visible, .radio:focus-within, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg button:focus-visible, a:focus-visible, button:focus-visible, .radio:focus-within, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* 카드 */
 .card { display: block; background: var(--card); border-radius: 20px; padding: 20px; }
@@ -154,7 +156,7 @@ b { font-weight: 600; color: var(--title); }
 /* 현장 조정: 조건 | 조치 */
 .rules { display: grid; gap: 16px; }
 .rule { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 12px; align-items: start; }
-.rule .c { color: var(--sub); }
+.rule .c { color: var(--body); }
 .rule .a { color: var(--title); font-weight: 600; }
 .rule .c:empty { display: none; }
 .rule .c:empty + .a { grid-column: 1 / -1; }
@@ -181,7 +183,9 @@ b { font-weight: 600; color: var(--title); }
 .foot { color: var(--sub); font-size: 13px; margin: 24px 4px 0; }
 
 @media (max-width: 360px) {
-  .nums .num { font-size: 26px; }
+  .nums { gap: 8px; }
+  .nums .num { font-size: 24px; }
+  .nums span { font-size: 12px; white-space: nowrap; }
 }
 
 /* 카메라 선택 / 내 카메라 / 어댑터 표시 */
@@ -248,7 +252,7 @@ b { font-weight: 600; color: var(--title); }
 .lights { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; text-align: center; }
 .lights span { display: block; font-size: 13px; color: var(--sub); margin-bottom: 8px; white-space: nowrap; }
 .lights .dot { display: inline-block; width: 20px; height: 20px; border-radius: 50%; }
-.dot.ok { background: #22c55e; } .dot.warn { background: #f59e0b; } .dot.bad { background: #f04452; }
+.dot.ok { background: var(--ok-bg); } .dot.warn { background: var(--caution-bg); } .dot.bad { background: #f04452; }
 .fnd { list-style: none; margin: 0; padding: 0; }
 .fnd li { display: flex; align-items: flex-start; gap: 12px; }
 .fnd li + li { margin-top: 16px; }
@@ -257,7 +261,7 @@ b { font-weight: 600; color: var(--title); }
 .fnd b { display: block; }
 .fnd small { display: block; font-size: 13px; color: var(--sub); margin-top: 2px; word-break: keep-all; }
 .fnd small.info { color: var(--accent); }
-.okline { margin: 0 0 12px; color: #22c55e; font-weight: 600; }
+.okline { margin: 0 0 12px; color: var(--ok); font-weight: 600; }
 .okline:last-child { margin-bottom: 0; }
 .fnd:empty { display: none; }
 .card.gear { background: var(--seg); }
@@ -270,7 +274,7 @@ b { font-weight: 600; color: var(--title); }
 .card > .btn.ghost { margin-top: 12px; }
 /* 검토 반영: 좁은 폭에서 조건|조치를 위아래로, 터치 영역, 핵심만 보기, 체크 카드, 시간 추천, 진단 라벨 */
 @media (max-width: 380px) { .rule { grid-template-columns: 1fr; gap: 2px; } .rule .c:empty + .a { grid-column: auto; } }
-.more summary { padding: 8px 0; margin: -8px 0; }
+.more summary { padding: 12px 0; margin: -12px 0; min-height: 44px; display: inline-flex; align-items: center; gap: 4px; }
 .card.key .sub .focus-btn { float: right; margin: -4px 0 0 8px; }
 .focus-btn, .card .mini { display: inline-block; font-size: 13px; font-weight: 600; color: var(--accent); background: var(--pill); border-radius: 999px; padding: 4px 12px; border: 0; cursor: pointer; }
 .card .mini { margin-top: 12px; }
@@ -283,8 +287,7 @@ main.focus .dialc .more { display: none; }
 .hints .chip { font-size: 13px; }
 .ref-note.samples.link { display: block; color: var(--accent); margin-top: 16px; }
 .lights small { display: block; font-size: 12px; margin-top: 4px; color: var(--sub); }
-.lights small.ok { color: #15803d; } .lights small.warn { color: #b45309; } .lights small.bad { color: var(--warn); }
-.okline { color: #15803d; }
+.lights small.ok { color: var(--ok); } .lights small.warn { color: var(--caution); } .lights small.bad { color: var(--warn); }
 .more.adv { margin-top: 24px; } .more.adv summary { color: var(--sub); font-weight: 400; } .more.adv .card { margin-top: 12px; }
 .more.similar { margin-top: 16px; } .more.similar summary { color: var(--accent); }
 .more.similar .list { margin-top: 8px; }
@@ -303,6 +306,9 @@ main.focus .dialc .more { display: none; }
 .lens-inline .lens-row { margin-bottom: 4px; }
 .lens-inline .mini { margin-top: 4px; }
 #lensChip { border: 0; font: inherit; letter-spacing: inherit; cursor: pointer; }
+/* 전역 오류 토스트 */
+.toast { position: fixed; left: 20px; right: 20px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); background: var(--title); color: var(--card); border-radius: 16px; padding: 14px 16px; font-size: 14px; z-index: 50; display: flex; gap: 12px; align-items: center; }
+.toast a { color: var(--accent); font-weight: 600; margin-left: auto; white-space: nowrap; }
 /* 로딩 스켈레톤 */
 .skel { display: grid; gap: 10px; margin-top: 12px; }
 .skel span { display: block; height: 14px; border-radius: 7px; background: var(--seg); }
@@ -318,3 +324,43 @@ main.focus .dialc .more { display: none; }
 .field .row .lens-btn { flex: 0 0 auto; height: 48px; border-radius: 12px; }
 .lens-btn:disabled { background: var(--pill); color: var(--sub); }
 .ref-note.warn { color: var(--warn); }
+
+/* ---- 라운드 2(완성도): 모션·터치·a11y ---- */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+.press { transition: background-color .15s, transform .1s; }
+.card.press:active, .btn.press:active, .slot.press:active { transform: scale(.985); }
+.mini.press:active, .pill.press:active, .lens-btn:active { transform: scale(.97); }
+.focus-btn, .card .mini, .checks .mini, .lens-inline .mini { min-height: 36px; padding: 8px 12px; line-height: 20px; }
+.card.key .sub:has(> .ctx) { display: flex; align-items: flex-start; gap: 8px; }   /* 첫 줄(기종·렌즈 + 버튼)만. 둘째 줄의 .num은 그대로 인라인 */
+.card.key .sub .ctx { flex: 1; min-width: 0; padding-top: 7px; }
+.card-actions { display: inline-flex; flex: 0 0 auto; gap: 6px; margin-left: auto; }
+.card-actions .mini { margin-top: 0; }
+.card-actions #shareBtn { display: inline-flex; align-items: center; justify-content: center; width: 36px; padding: 0; }
+.card.key .sub .focus-btn { float: none; margin: 0; }
+/* 결과 화면 끝 '다른 상황 고르기'는 고스트 버튼(주 행동 아님) */
+main > .btn.ghost { margin-top: 24px; }
+/* 렌즈 체크 CTA: 화면 하단 고정 + 선택 개수 */
+.btn.sticky { position: sticky; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin-top: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12); }
+/* 홈 체크리스트: 처음엔 펼침, 이후엔 한 줄 */
+details.card.check summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--sub); min-height: 24px; }
+details.card.check summary::-webkit-details-marker { display: none; }
+details.card.check summary svg { transition: transform .15s; margin-left: auto; }
+details.card.check[open] summary svg { transform: rotate(180deg); }
+details.card.check:not([open]) { padding: 12px 20px; }
+/* 자세히 summary 안의 SVG 화살표: 글자 화살표(::after)는 끄고, 열리면 회전 */
+.more summary:has(svg)::after { content: none; }
+.more summary svg { transition: transform .15s; }
+.more[open] summary svg { transform: rotate(180deg); }
+/* 헤더 렌즈 칩: 긴 이름은 말줄임 */
+#lensChip { display: inline-flex; align-items: center; gap: 2px; max-width: 46vw; }
+#lensChip .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 진단 신호등 5칸: 라벨 줄바꿈 허용, 320px에서 글자 축소 */
+.lights span { white-space: normal; line-height: 1.3; }
+@media (max-width: 360px) { .lights span { font-size: 12px; } .lights small { font-size: 11px; } }
+/* 설정 '했음' 체크: 44px 터치 영역 */
+.setup h3 .done { min-height: 44px; margin: -10px -8px -10px auto; padding: 0 8px; }
+.setup .ko { color: var(--sub-weak); }
+/* 카메라 선택: 마운트별 묶음 */
+.sec + .list { margin-top: 0; }
+/* 토스트 안전 영역·접근성 */
+.toast { z-index: 20; display: flex; align-items: center; gap: 12px; }

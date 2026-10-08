@@ -57,9 +57,9 @@
 ## 렌즈
 | id | 렌즈 | 마운트 | 초점거리 | 조리개 | 최단 | IS | 출처 |
 |---|---|---|---|---|---|---|---|
-| ef24105 | EF 24-105mm f/4L IS USM (I형/II형 미확인) | EF | 24–105 | f/4–22 | 0.45m | 있음 (I형 3스톱, II형 4스톱. 세대 확인 전까지 스톱 수 보류) | https://www.canon.co.uk/lenses/ef-24-105mm-f-4l-is-ii-usm-lens/specifications/ |
+| ef24105 | EF 24-105mm f/4L IS USM (I형/II형 미확인) | EF | 24–105 | f/4–22 | 0.45m | 있음 (I형 3스톱, II형 4스톱. 세대 확인 전까지 스톱 수 보류) | https://www.canon.co.uk/lenses/ef-24-105mm-f-4l-is-ii-usm-lens/specifications/ , TDP I형 https://www.the-digital-picture.com/Reviews/Lens-Specifications.aspx?Lens=355 , II형 ?Lens=1072 |
 | ef50 | EF 50mm f/1.8 STM | EF | 50 | f/1.8–22 | 0.35m | 없음 | https://www.the-digital-picture.com/Reviews/Lens-Specifications.aspx?Lens=989 |
-| ef85_18 | EF 85mm f/1.8 USM | EF | 85 | f/1.8–22 | 0.85m | 없음 | https://www.the-digital-picture.com/Reviews/Canon-EF-85mm-f-1.8-USM-Lens-Review.aspx (Canon in.canon 사양 페이지는 404) |
+| ef85_18 | EF 85mm f/1.8 USM | EF | 85 | f/1.8–22 | 0.85m | 없음 | https://www.the-digital-picture.com/Reviews/Lens-Specifications.aspx?Lens=106 (리뷰 https://www.the-digital-picture.com/Reviews/Canon-EF-85mm-f-1.8-USM-Lens-Review.aspx , Canon in.canon 사양 페이지는 404) |
 | ef50_14 | EF 50mm f/1.4 USM | EF | 50 | f/1.4–22 | 0.45m | 없음 | https://www.the-digital-picture.com/Reviews/Lens-Specifications.aspx?Lens=115 |
 | ef35_2is | EF 35mm f/2 IS USM | EF | 35 | f/2–22 | 0.24m | 4스톱 | https://www.canon.co.uk/lenses/ef-35mm-f-2-is-usm-lens/specification.html |
 | ef2470_28 | EF 24-70mm f/2.8L II USM | EF | 24–70 | f/2.8–22 | 0.38m | 없음 | https://www.the-digital-picture.com/Reviews/Lens-Specifications.aspx?Lens=787 |
@@ -153,7 +153,7 @@ ff2dial (메인 다이얼 + 퀵 컨트롤 다이얼, C1/C2 있음). 이번 세�
 | imageQuality | 촬영 1탭 → Image quality | 169 |
 | isoAutoRange | 촬영 2탭 → ISO speed settings → Auto range | 181 |
 | minShutter | 촬영 2탭 → ISO speed settings → Min. shutter spd. → Auto / Manual. ISO 자동 상한에서도 노출이 안 되면 더 느린 셔터 사용 | 182 |
-| pictureStyle | 뒷면 Picture Style 버튼 → 선택 (촬영 3탭 Picture Style 화면에서도 가능 p.183). 세부 조정 p.187 | 183 |
+| pictureStyle | 뒷면 Picture Style 버튼 → 선택 (촬영 3탭 Picture Style 화면에서도 가능 p.183). 세부 조정(INFO) p.187 — 앱 카드가 세부 조정까지 안내하므로 쪽수는 187 (리뷰 라운드 2 교정) | 187 |
 | wb | 촬영 2탭 → White balance | 192 |
 | awbPriority | 촬영 2탭 → White balance → AWB 선택 후 INFO → Ambience priority / White priority | 194 |
 | alo | 촬영 2탭 → Auto Lighting Optimizer | 201 |
@@ -210,7 +210,7 @@ ff2dial. 6D2와 조작이 같아(Av 메인 다이얼 조리개, 퀵 컨트롤 �
 | antiFlicker | 촬영 3탭 → Anti-flicker shoot. | UG-04_Shooting-1_0150 |
 | customMode | 설정 6탭 → Custom shooting mode (C1-C3) → Register settings. Auto update set., Clear settings | UG-08_Set-up_0330 |
 | lensAdapter | EF/EF-S 렌즈 장착: 마운트 어댑터 EF-EOS R | UG-01_Preparations_0080 |
-| subjectDetect (추가) | AF 1탭 → Subject to detect / Eye detection | UG-05_AF-Drive_0060 |
+| subjectDetect (추가) | AF 1탭 → Subject to detect (Auto/People/Animals/Vehicles/None) / Eye detection (Disable/Auto/Right eye/Left eye — Enable 옵션 없음, 2026-10-09 원문 확인) | UG-05_AF-Drive_0060 |
 | shutterMode (추가) | 촬영 7탭 → Shutter mode | UG-04_Shooting-1_0370 |
 | afOperation / afArea / driveMode (추가) | AF 1탭 → AF operation / AF area, M-Fn 버튼 → 드라이브 (촬영 7탭 Drive mode) | UG-05_AF-Drive_0040 / 0060 / 0120 |
 
@@ -263,7 +263,7 @@ rf. 뼈대는 ff2dial과 같고(C1 → 메인 다이얼 조리개 → 퀵 컨트
 | antiFlicker | 촬영 2탭 → Anti-flicker shoot. | UG-05_Shooting-1_0140 |
 | customMode | 스틸 C 모드 없음. 설정 5탭 Custom shooting mode (C mode)는 동영상 전용 | UG-09_Set-up_0250 |
 | lensAdapter | EF/EF-S 렌즈 장착: 마운트 어댑터 EF-EOS R | UG-01_Preparations_0070 |
-| subjectDetect (추가) | AF 1탭 → Subject to detect / Eye detection | UG-06_AF-Drive_0060 |
+| subjectDetect (추가) | AF 1탭 → Subject to detect (Auto/People/Animals/Vehicles/None) / Eye detection — 옵션 이름은 온라인 가이드 본문에 없어 미확인(2026-10-09). 앱은 '켜기'로만 안내 | UG-06_AF-Drive_0060 |
 | shutterMode (추가) | 촬영 6탭 → Shutter mode → Elec. 1st-curtain (기계식 없음, 설정 화면 문구를 이 바디에서만 덮어씀) | UG-05_Shooting-1_0300 |
 | afOperation / afArea / driveMode (추가) | AF 1탭 → AF operation / AF area, ▶ 버튼 → 드라이브 (촬영 6탭 Drive mode) | UG-06_AF-Drive_0040 / 0060 / 0120 |
 
@@ -315,7 +315,7 @@ C 모드가 없어 피사체를 바꿀 때마다 AF operation / AF area / 드라
 | antiFlicker | 촬영 3탭 → Anti-flicker shoot. | UG-04_Shooting-1_0150 |
 | customMode | 설정 5탭 → Custom shooting mode (C1, C2) → Register settings. Auto update set., Clear settings | UG-08_Set-up_0290 |
 | lensAdapter | EF/EF-S 렌즈 장착: 마운트 어댑터 EF-EOS R | UG-01_Preparations_0070 |
-| subjectDetect (추가) | AF 1탭 → Subject to detect / Eye detection | UG-05_AF-Drive_0060 |
+| subjectDetect (추가) | AF 1탭 → Subject to detect (Auto/People/Animals/Vehicles/None) / Eye detection (Disable/Auto/Right eye/Left eye — Enable 옵션 없음, 2026-10-09 원문 확인) | UG-05_AF-Drive_0060 |
 | shutterMode (추가) | 촬영 7탭 → Shutter mode → Elec. 1st-curtain (기계식 없음, 설정 화면 문구를 이 바디에서만 덮어씀) | UG-04_Shooting-1_0370 |
 | afOperation / afArea / driveMode (추가) | AF 1탭 → AF operation / AF area, M-Fn 버튼 → 드라이브 (촬영 7탭 Drive mode) | UG-05_AF-Drive_0040 / 0060 / 0120 |
 
@@ -2179,6 +2179,20 @@ Av 상황은 "조리개·보정·ISO 상한·최소 셔터"를 사용자가 설�
 `*` = 추정 EV. 플래그: isoCapped = ISO 상한 도달(카메라가 최소 셔터보다 느린 셔터 사용) · tooBright = 바디 최고 셔터 초과(조리개 조이기) · tooDark = 비상 ISO 상한으로도 부족.
 생성: 2026-10-08 node check.js
 <!-- CALC:END -->
+
+## 공통 5. 화질(Image quality) 화면의 다이얼 (2026-10-09 매뉴얼 원문 확인)
+| 바디 | RAW 선택 | JPEG 선택 | 근거 |
+|---|---|---|---|
+| 6D2, 80D, 90D, 250D | 메인 다이얼 | 좌우(◄►) 키 | 각 PDF Image quality 항목 "To select a RAW setting, turn the <main dial>. To select a JPEG setting, press the <◄><►> keys" |
+| 6D | 메인 다이얼 | 멀티 컨트롤러 | 6D PDF p.102 "press the <multi-controller> key" |
+| R6 II | 메인 다이얼 | 퀵 컨트롤 다이얼 1 | UG-04_Shooting-1_0030 |
+| R8 | 메인 다이얼 | 퀵 컨트롤 다이얼 | UG-04_Shooting-1_0030 |
+| R50 | 다이얼 | 좌우(◄►) 키 | UG-05_Shooting-1_0030 |
+| 5D4, 850D | 미확인 (텍스트 추출본에서 해당 문장 못 찾음) → 공통 문구(좌우 키) 유지, 메뉴 위치는 그대로 유효 | | |
+앱: SETUP_COMMON imageQuality.note가 공통 문구, camera.menu.imageQuality.note가 바디별 덮어쓰기(R6 II·R8·6D).
+
+## 공통 6. 노출보정 범위
+ecMax 5는 check.js 범위 검사용 상한(6D2·5D4·90D 등 ±5 바디 기준). R6 II·R8·R50은 ±3. 앱이 쓰는 노출보정 값은 전부 ±1 이내라 어느 바디에서도 유효.
 
 ## 체크 스크립트용 기준값
 check.js가 이 블록을 읽어 data.js와 대조한다. 위 표들과 반드시 일치시킬 것. 바디를 추가하면 `cameras`에 항목 추가.
