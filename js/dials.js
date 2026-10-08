@@ -1,6 +1,6 @@
 // 다이얼 조작 문구. family(바디 내부 분류)별 템플릿. compute()는 문구를 만들지 않는다.
 // dialSteps(r) → 문자열 배열. r은 exposure.js compute() 결과.
-// 검증: ff2dial = 6D Mark II·5D Mark IV, rf = R6 Mark II, rf1dial = R50. crop2dial은 ff2dial 문구 재사용(미검증), crop1dial은 틀만.
+// 검증: ff2dial = 6D Mark II·5D Mark IV, rf = R6 Mark II, rf1dial = R50, rf2dial = R8. crop2dial은 ff2dial 문구 재사용(미검증), crop1dial은 틀만.
 
 const DIALS = {
   // 풀프레임·2다이얼(메인 + 퀵 컨트롤), C 모드 있음. 검증: 6D Mark II(p.238/241/245/170), 5D Mark IV(p.248/251/255/177).
@@ -123,6 +123,31 @@ const DIALS = {
         `다이얼(셔터 버튼 뒤)로 셔터 <b>${fmtShutter(r.shutter)}</b>`,
         `▲ 버튼을 눌러 조리개 선택 → 다이얼로 조리개 <b>f/${r.aperture}</b>`,
         `ISO 버튼 → 다이얼로 <b>ISO ${r.iso}</b> (AUTO가 아니라 숫자)`,
+      ];
+    },
+  },
+  // RF 풀프레임·2다이얼(메인 + 퀵 컨트롤 다이얼 1개), 잠금은 전원 스위치의 LOCK 위치. C1·C2 있음. 검증: R8 온라인 가이드(C013)
+  //  Av: 메인 다이얼 = 조리개 (UG-03_CustomShooting_0050) / 노출보정 = 퀵 컨트롤 다이얼 (UG-04_Shooting-1_0080)
+  //  M: 메인 다이얼 = 셔터, 퀵 컨트롤 다이얼 = 조리개 (UG-03_CustomShooting_0060). ISO 버튼이 없어 화면 오른쪽 아래 ISO를 터치한 뒤 퀵 컨트롤 다이얼 (UG-04_Shooting-1_0100)
+  //  전원/멀티펑션 잠금 스위치가 LOCK이면 다이얼이 안 돈다 (UG-08_Set-up_0250)
+  rf2dial: {
+    av(r) {
+      const steps = [
+        `모드 다이얼을 <b>${r.cmode || 'Av'}</b>에`,
+        `메인 다이얼(셔터 버튼 뒤)로 조리개 <b>f/${r.aperture}</b>`,
+        r.ec
+          ? `퀵 컨트롤 다이얼(뒷면 원형)로 노출보정 <b>${fmtEC(r.ec)}</b> (안 돌아가면 전원 스위치가 LOCK 위치인지 확인)`
+          : `퀵 컨트롤 다이얼(뒷면 원형)이 노출보정 <b>0</b>인지 화면에서 확인`,
+      ];
+      if (r.minShutter !== r.minShutterDefault) steps.push(`${r.camera.menu.minShutter.path} <b>${fmtShutter(r.minShutter)}</b> (${r.cmode} 기본 ${fmtShutter(r.minShutterDefault)}에서 변경)`);
+      return steps;
+    },
+    m(r) {
+      return [
+        `모드 다이얼을 <b>M</b>에`,
+        `메인 다이얼(셔터 버튼 뒤)로 셔터 <b>${fmtShutter(r.shutter)}</b>`,
+        `퀵 컨트롤 다이얼(뒷면 원형)로 조리개 <b>f/${r.aperture}</b>`,
+        `화면 오른쪽 아래 ISO를 터치한 뒤 퀵 컨트롤 다이얼로 <b>ISO ${r.iso}</b> (AUTO가 아니라 숫자)`,
       ];
     },
   },

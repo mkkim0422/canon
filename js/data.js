@@ -129,6 +129,42 @@ const CAMERAS = [
     specUrl: 'https://cam.start.canon/en/C011/manual/html/UG-11_Reference_0090.html',
     verified: true,
   },
+  {
+    // 풀프레임 미러리스·2다이얼(메인 + 퀵 컨트롤 다이얼 1개, 전원 스위치 겸 멀티펑션 잠금). 기계식 셔터 없음(전자 선막 1/4000). C1·C2 있음.
+    // 가이드 https://cam.start.canon/en/C013/manual/ (영문 온라인). 사양: UG-10_Reference_0100
+    id: 'eosr8', name: 'EOS R8', short: 'R8', family: 'rf2dial', mount: 'RF', crop: 1,
+    isoMin: 100, isoMax: 102400, isoUsable: 12800, isoHard: 25600, isoAutoMaxMin: 200,   // L 50 / H 204800은 앱에서 쓰지 않음
+    shutterFastest: 1 / 4000, shutterLongest: 30,   // 전자 선막 기준. 전자셔터 1/8000(연사+)·1/16000은 앱에서 쓰지 않음
+    hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',   // 노출보정 = 퀵 컨트롤 다이얼 (UG-04_Shooting-1_0080)
+    shutterBase: 'Elec. 1st-curtain',   // 기계식 셔터 없음 → C 모드 단계 연사 문구 {shutterBase}
+    afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 6,   // High-speed continuous + 전자 선막 약 6.0컷/초 (전자셔터 40은 앱 미사용)
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0030.html' },
+      isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Auto range', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0100.html' },
+      minShutter:   { path: 'MENU → 촬영 2탭 → ISO speed settings → Min. shutter spd.', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0100.html' },
+      pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → Portrait → INFO(세부 조정)', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0230.html' },
+      wb:           { path: 'MENU → 촬영 4탭 → White balance', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0200.html' },
+      awbPriority:  { path: 'MENU → 촬영 4탭 → White balance → AWB 선택 후 AF 포인트 선택 버튼 → Ambience priority', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0200.html' },
+      alo:          { path: 'MENU → 촬영 2탭 → Auto Lighting Optimizer', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0130.html' },
+      highIsoNr:    { path: 'MENU → 촬영 5탭 → High ISO speed NR', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0300.html' },
+      antiFlicker:  { path: 'MENU → 촬영 3탭 → Anti-flicker shoot.', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0150.html' },
+      customMode:   { path: 'MENU → 설정(공구) 5탭 → Custom shooting mode (C1, C2) → Register settings', page: 'https://cam.start.canon/en/C013/manual/html/UG-08_Set-up_0290.html' },
+      lensAdapter:  { path: 'EF/EF-S 렌즈는 마운트 어댑터 EF-EOS R에 끼워 장착 (EF-M 렌즈 불가)', page: 'https://cam.start.canon/en/C013/manual/html/UG-01_Preparations_0070.html' },
+      // 미러리스 전용 항목
+      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Enable(Auto)', page: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0060.html' },
+      shutterMode:   { path: 'MENU → 촬영 7탭 → Shutter mode → Elec. 1st-curtain', page: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0370.html',
+        title: '셔터 모드 전자 선막', value: 'Elec. 1st-curtain',
+        why: '이 기종은 기계식 셔터가 없음. 전자 선막이 기본값이고 앱의 셔터 상한 1/4000·연사 6컷/초는 이 기준. Electronic은 40컷/초·1/16000까지 되지만 실내 LED 플리커·롤링 셔터 왜곡이 생길 수 있음.' },
+      afOperation:   { path: 'MENU → AF 1탭 → AF operation', page: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0040.html' },
+      afArea:        { path: 'MENU → AF 1탭 → AF area', page: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0060.html' },
+      driveMode:     { path: 'M-Fn 버튼 → 드라이브 항목 → 메인 다이얼 (또는 MENU → 촬영 7탭 → Drive mode)', page: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0120.html' },
+    },
+    pages: { afMode: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0040.html', afArea: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0060.html', drive: 'https://cam.start.canon/en/C013/manual/html/UG-05_AF-Drive_0120.html',
+      avMode: 'https://cam.start.canon/en/C013/manual/html/UG-03_CustomShooting_0050.html', mMode: 'https://cam.start.canon/en/C013/manual/html/UG-03_CustomShooting_0060.html', ec: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0080.html', iso: 'https://cam.start.canon/en/C013/manual/html/UG-04_Shooting-1_0100.html' },
+    manualUrl: 'https://cam.start.canon/en/C013/manual/',
+    specUrl: 'https://cam.start.canon/en/C013/manual/html/UG-10_Reference_0100.html',
+    verified: true,
+  },
 ];
 
 // 1/3스톱 표준값
@@ -372,7 +408,8 @@ const SETUP_COMMON = [
     why: '전자셔터는 실내 LED·형광등에서 줄무늬(플리커)와 빠른 움직임의 일그러짐(롤링 셔터)이 생길 수 있음. 앱의 셔터·연사 값은 기계식 기준.' },
 ];
 
-// C 모드 등록 단계 (hasCModes인 바디만). {c1} {c2} {afStill} {afKid} {afAreaStill} {afAreaKid} {burst}는 바디 값으로 치환.
+// C 모드 등록 단계 (hasCModes인 바디만). {c1} {c2} {afStill} {afKid} {afAreaStill} {afAreaKid} {burst} {shutterBase}는 바디 값으로 치환.
+// rf: 덮어쓰기는 RF 마운트 바디 전부에 적용된다(family가 rf·rf2dial 등 무엇이든). {shutterBase}는 camera.shutterBase(기본 Mechanical).
 // pageKey는 camera.pages, menuKey는 camera.menu에서 페이지를 찾는다.
 const SETUP_CMODE_STEPS = [
   { title: '모드 다이얼 Av', value: '모드 다이얼을 Av에', path: '모드 다이얼', pageKey: 'avMode' },
@@ -387,7 +424,7 @@ const SETUP_CMODE_STEPS = [
     note: 'ISO 상한에 걸리면 카메라가 이보다 느린 셔터를 쓰기도 함 (매뉴얼 명시). 그때는 ISO 상한을 올려야 함.' },
   { title: '{c1}에 등록', value: 'Register settings → {c1} → OK', menuKey: 'customMode', pathKo: '커스텀 촬영 모드 → 설정 등록' },
   { title: '아이용으로 바꾸기', value: 'AF 버튼 → {afKid} / AF 영역 선택 버튼 → {afAreaKid} / DRIVE 버튼 → 고속 연사 ({burst}컷/초) / Min. shutter spd. → 1/500', path: '②~⑤와 같은 버튼·메뉴', pageKeys: ['afMode', 'afArea', 'drive'], menuKeys: ['minShutter'],
-    rf: { value: 'AF operation → {afKid} / AF area → {afAreaKid} / Drive → High-speed continuous + (Mechanical 약 {burst}컷/초) / Min. shutter spd. → 1/500', pageKeys: [], menuKeys: ['afOperation', 'afArea', 'driveMode', 'minShutter'] } },
+    rf: { value: 'AF operation → {afKid} / AF area → {afAreaKid} / Drive → High-speed continuous + ({shutterBase} 약 {burst}컷/초) / Min. shutter spd. → 1/500', pageKeys: [], menuKeys: ['afOperation', 'afArea', 'driveMode', 'minShutter'] } },
   { title: '{c2}에 등록', value: 'Register settings → {c2} → OK', menuKey: 'customMode', pathKo: '커스텀 촬영 모드 → 설정 등록' },
   { title: 'Auto update set.는 Disable 유지', value: 'Disable (기본값)', menuKey: 'customMode', pathSuffix: ' → Auto update set.', pathKo: '커스텀 촬영 모드 → 자동 업데이트 설정',
     why: '현장에서 바꾼 값이 저장되지 않아 매번 깨끗하게 시작.' },

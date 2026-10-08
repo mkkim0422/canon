@@ -125,7 +125,8 @@ function fillCam(text, cam) {
     .replace(/\{c1\}/g, c[0] || 'C1').replace(/\{c2\}/g, c[1] || 'C2')
     .replace(/\{afStill\}/g, cam.afModes.still).replace(/\{afKid\}/g, cam.afModes.kid)
     .replace(/\{afAreaStill\}/g, cam.afAreaStill).replace(/\{afAreaKid\}/g, cam.afAreaKid)
-    .replace(/\{burst\}/g, cam.burstFps);
+    .replace(/\{burst\}/g, cam.burstFps)
+    .replace(/\{shutterBase\}/g, cam.shutterBase || 'Mechanical');   // 기계식 셔터가 없는 바디(R8)는 'Elec. 1st-curtain'
 }
 
 // ---------- 카메라 선택 (첫 실행 / 설정에서 변경) ----------
@@ -739,7 +740,7 @@ function renderSettings(view) {
     cmodes = `<h2 class="sec">2. ${cam.cModes.join('·')} 등록</h2>
       <p class="lead">공통 설정을 끝낸 상태에서 순서대로. ${cam.cModes[0]} = 가만히 있는 사람, ${cam.cModes[1]} = 움직이는 아이.</p>
       <div class="list">${SETUP_CMODE_STEPS.map((base, i) => {
-        const s = Object.assign({}, base, base[cam.family] || {});   // family별 문구 덮어쓰기 (예: rf)
+        const s = Object.assign({}, base, base[cam.family] || (cam.mount === 'RF' ? base.rf : null) || {});   // family별 문구 덮어쓰기. RF 마운트는 family가 달라도 rf 문구
         const pages = [];
         let path = s.path || '';
         if (s.menuKey) { const m = cam.menu[s.menuKey]; path = (m.path || '') + (s.pathSuffix || ''); if (m.page) pages.push(m.page); }

@@ -24,7 +24,7 @@ const fail = (s) => fails.push(s);
 const warn = (s) => warns.push(s);
 const approx = (a, b) => Math.abs(a - b) / b < 1e-6;
 const MENU_KEYS = ['imageQuality', 'isoAutoRange', 'minShutter', 'pictureStyle', 'wb', 'awbPriority', 'alo', 'highIsoNr', 'antiFlicker', 'customMode', 'lensAdapter'];
-const FAMILIES = ['ff2dial', 'crop2dial', 'crop1dial', 'rf', 'rf1dial'];
+const FAMILIES = ['ff2dial', 'crop2dial', 'crop1dial', 'rf', 'rf1dial', 'rf2dial'];
 
 // 3) 바디
 if (!D.CAMERAS.length) fail('CAMERAS가 비어 있음');
