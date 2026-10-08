@@ -4,7 +4,7 @@
 // 사진 분석은 exif.js/analyze.js, 매핑은 match.js(docs/match.md).
 const APP_NAME = '카메라 치트키';
 const $ = (id) => document.getElementById(id);
-const K = { camera: 'cck.camera', lens: 'cck.lens', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey' };
+const K = { camera: 'cck.camera', lens: 'cck.lens', lenses: 'cck.lenses', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey' };
 const REF_KEY = 'cck.ref'; // sessionStorage. 분석 결과(features·exif·축소본 dataURL·summary·선택). 원본 사진은 어디에도 저장하지 않는다.
 
 const store = {
@@ -23,14 +23,36 @@ const store = {
     localStorage.setItem(K.camera, JSON.stringify('eos6d2'));
   } catch (e) { /* 무시 */ }
 })();
+// 내 렌즈(다중) 1회 마이그레이션: cck.lenses가 없으면 지금 선택 렌즈 하나를 내 렌즈로.
+(function migrateLenses() {
+  try {
+    if (localStorage.getItem(K.lenses) != null) return;
+    const cur = JSON.parse(localStorage.getItem(K.lens) || 'null');
+    if (cur) localStorage.setItem(K.lenses, JSON.stringify([cur]));
+  } catch (e) { /* 무시 */ }
+})();
 
 const cameraId = () => { const id = store.get(K.camera, null); return byId(CAMERAS, id) ? id : null; };
 const camera = () => byId(CAMERAS, cameraId());
+// 내 렌즈 = 체크한 렌즈 중 현재 바디와 호환되는 것(네이티브 먼저). 하나도 없으면 첫 호환 렌즈 하나.
+function ownedLensIds(cam) {
+  const ok = compatibleLenses(cam);
+  const owned = store.get(K.lenses, []);
+  const list = ok.filter((l) => Array.isArray(owned) && owned.includes(l.id)).map((l) => l.id);
+  return list.length ? list : [ok[0].id];
+}
+// 현재 렌즈: 내 렌즈 중 하나. 아니면 내 렌즈 첫 번째.
 function lensId() {
   const cam = camera(); if (!cam) return null;
-  const ok = compatibleLenses(cam);
+  const owned = ownedLensIds(cam);
   const id = store.get(K.lens, null);
-  return ok.some((l) => l.id === id) ? id : ok[0].id;
+  return owned.includes(id) ? id : owned[0];
+}
+function setOwned(cam, ids) {
+  const ok = compatibleLenses(cam).map((l) => l.id);
+  const list = ids.filter((id) => ok.includes(id));
+  store.set(K.lenses, list.length ? list : [ok[0]]);
+  if (!ownedLensIds(cam).includes(store.get(K.lens, null))) store.set(K.lens, ownedLensIds(cam)[0]);
 }
 const setupDone = () => !!store.get(K.setup, false);
 const li = (items) => items.map((x) => `<li>${x}</li>`).join('');
@@ -90,6 +112,7 @@ function fillSteps(text, r) {
   return text
     .replace('{isoSteps}', stepsFrom(T.isos, r.iso, (x) => String(x)))
     .replace('{shutterSteps}', stepsFrom(T.shutters, r.shutter, fmtShutter))
+    .replace('{apStop}', (() => { const i = APERTURES.indexOf(r.aperture); const nx = APERTURES[Math.min(APERTURES.length - 1, i + 3)]; return `f/${Math.min(nx, r.lens.apMax)}`; })())
     .replace('{maxShutter}', fmtShutter(r.camera.shutterFastest))
     .replace(/\{isoHard\}/g, String(r.camera.isoHard));
 }
@@ -118,30 +141,36 @@ function renderCameraSelect(view, fromSettings) {
     const next = b.dataset.camera;
     if (next !== cur) { store.set(K.camera, next); store.del(K.setup); store.del(K.recent); }
     const cam = byId(CAMERAS, next);
-    if (!compatibleLenses(cam).some((l) => l.id === store.get(K.lens, null))) store.set(K.lens, compatibleLenses(cam)[0].id);
+    setOwned(cam, store.get(K.lenses, []) || []); // 호환 안 되는 렌즈는 내 렌즈에서 빠짐
     location.hash = fromSettings ? 'settings' : 'lenses';
   }));
 }
 
 // ---------- 렌즈 체크 (첫 실행) ----------
 function renderLensCheck(view) {
-  const cam = camera(), cur = lensId();
+  const cam = camera();
   view.innerHTML = `
     ${header('내 렌즈', '#camera', { noGear: true })}
-    <p class="lead">${cam.name}에 쓰는 렌즈를 고르세요. 결과 화면에서 언제든 바꿀 수 있습니다.</p>
-    <div class="list">${lensRadios(cam, cur)}</div>
+    <p class="lead">${cam.name}에 쓰는 렌즈를 모두 체크하세요. 체크한 렌즈만 결과 화면 버튼으로 나옵니다.</p>
+    <div class="list">${lensChecks(cam)}</div>
     <a class="btn press" href="#home">시작하기</a>`;
-  bindLensRadios(view);
+  bindLensChecks(view);
 }
-function lensRadios(cam, cur) {
-  return compatibleLenses(cam).map((l) => `<label class="card press radio ${l.id === cur ? 'on' : ''}">
-    <input type="radio" name="lens" id="lens-${l.id}" value="${l.id}" ${l.id === cur ? 'checked' : ''}>
+// 내 렌즈 체크 목록(다중). 바디 호환 렌즈 전부, 네이티브 먼저. 마지막 하나는 해제 불가.
+function lensChecks(cam) {
+  const owned = ownedLensIds(cam);
+  return compatibleLenses(cam).map((l) => `<label class="card press radio ${owned.includes(l.id) ? 'on' : ''}">
+    <input type="checkbox" name="lens" id="lens-${l.id}" value="${l.id}" ${owned.includes(l.id) ? 'checked' : ''}>
     <span class="txt"><b>${l.label}${l.mount !== cam.mount ? ' <span class="tag">어댑터</span>' : ''}</b><small>${l.note}</small></span></label>`).join('');
 }
-function bindLensRadios(view) {
+function bindLensChecks(view) {
+  const cam = camera();
   view.querySelectorAll('input[name=lens]').forEach((inp) => inp.addEventListener('change', () => {
-    store.set(K.lens, inp.value);
-    view.querySelectorAll('.radio').forEach((l) => l.classList.toggle('on', l.querySelector('input').value === inp.value));
+    const ids = [...view.querySelectorAll('input[name=lens]:checked')].map((x) => x.value);
+    if (!ids.length) { inp.checked = true; return; } // 최소 1개
+    setOwned(cam, ids);
+    const owned = ownedLensIds(cam);
+    view.querySelectorAll('.radio').forEach((l) => l.classList.toggle('on', owned.includes(l.querySelector('input').value)));
   }));
 }
 
@@ -160,7 +189,7 @@ function renderHome(view) {
     ${header(APP_NAME, null, { lens: true })}
     ${banner}
     ${recentCard}
-    ${segment([{ id: 'scene', label: '상황으로 찾기' }, { id: 'style', label: '원하는 사진으로 찾기' }, { id: 'ref', label: '사진으로' }], tab, 'tab', 'three')}
+    ${segment([{ id: 'scene', label: '상황으로' }, { id: 'style', label: '원하는 사진' }, { id: 'ref', label: '사진으로' }], tab, 'tab', 'three')}
     ${tab === 'scene' ? `
       <div class="grid">
         ${SCENES.map((s) => `<a class="card press scene" href="#scene.${s.id}"><b>${s.label}</b><small>${s.sub}</small></a>`).join('')}
@@ -187,7 +216,6 @@ function refLoad() {
 }
 function refSave(o) { REF = o; try { sessionStorage.setItem(REF_KEY, JSON.stringify(o)); } catch (e) { /* 용량 초과 등: 메모리 사본으로만 진행 */ } }
 const refMode = () => (store.get(K.refMode, 'mock') === 'gemini' ? 'gemini' : 'mock');
-const ownedLensIds = (cam) => compatibleLenses(cam).map((l) => l.id); // 앱은 렌즈 전부를 '내 렌즈'로 본다(렌즈 2종 원칙)
 
 // 예시 썸네일 줄 (홈 '사진으로' 탭의 '이 사진처럼' 카드 아래 + #ref 페이지). 누르면 그 샘플로 바로 '이 사진처럼' 분석.
 function refSamplesRow() {
@@ -543,7 +571,7 @@ function renderResult(view, req, opts = {}) {
   }
   const title = style ? style.title : r.scene.label;
   const subtitle = style ? `${r.scene.label} · ${r.subject.label}` : r.subject.label;
-  const recLens = style && style.lens !== lens && lensCompatible(cam, byId(LENSES, style.lens)) ? byId(LENSES, style.lens) : null;
+  const recLens = style ? recommendHint(style, cam, byId(LENSES, lens)) : null;
 
   view.innerHTML = `
     ${header(title, back, { subtitle })}
@@ -567,13 +595,26 @@ function renderResult(view, req, opts = {}) {
   flashChanged(view, r, opts.prev);
 }
 
+// 스타일의 recommend 조건을 현재 렌즈가 못 맞출 때만 안내. { need, ok: 내 렌즈 중 맞는 것 } 또는 null
+function recommendHint(style, cam, lens) {
+  const rc = style.recommend || {};
+  const meets = (l) => (rc.maxAp == null || l.apMin <= rc.maxAp) && (rc.minFocal == null || Math.round(l.tele * cam.crop) >= rc.minFocal) && (rc.maxWide == null || Math.round(l.wide * cam.crop) <= rc.maxWide);
+  if (meets(lens)) return null;
+  const need = [rc.maxAp != null && lens.apMin > rc.maxAp ? `f/${rc.maxAp} 이하 밝은 렌즈` : null,
+    rc.minFocal != null && Math.round(lens.tele * cam.crop) < rc.minFocal ? `${rc.minFocal}mm 이상` : null,
+    rc.maxWide != null && Math.round(lens.wide * cam.crop) > rc.maxWide ? `${rc.maxWide}mm 이하 광각` : null].filter(Boolean).join(' + ');
+  const ok = ownedLensIds(cam).map((id) => byId(LENSES, id)).filter((l) => l && meets(l));
+  return { need, ok };
+}
+
 // ----- 결과 화면 조각 (기존 결과 #r/#style 과 '이 사진처럼' #ref.result 가 공유) -----
 const numKeys = (r) => ({ aperture: r.aperture, shutter: r.shutter, iso: r.iso, ec: r.ec });
 
 // 렌즈 pill 버튼 줄. 바꾸면 rerender(prev)로 제자리 재계산 → flashChanged가 바뀐 숫자를 0.3초 강조.
 function lensRow(cam, lens) {
-  return `<div class="lens-row" role="radiogroup" aria-label="렌즈"><span class="lbl">렌즈</span>
-      ${compatibleLenses(cam).map((l) => `<button type="button" role="radio" aria-checked="${l.id === lens}" class="lens-btn ${l.id === lens ? 'on' : ''}" data-lens="${l.id}">${l.tab || l.short}</button>`).join('')}
+  const owned = ownedLensIds(cam);   // 체크한 내 렌즈만. 많으면 가로 스크롤
+  return `<div class="lens-row scroll" role="radiogroup" aria-label="렌즈"><span class="lbl">렌즈</span>
+      ${owned.map((id) => byId(LENSES, id)).map((l) => `<button type="button" role="radio" aria-checked="${l.id === lens}" class="lens-btn ${l.id === lens ? 'on' : ''}" data-lens="${l.id}">${l.tab || l.short}</button>`).join('')}
     </div>`;
 }
 function bindLensRow(view, r, rerender) {
@@ -594,14 +635,14 @@ function flashChanged(view, r, prev) {
   setTimeout(() => changed.forEach((el) => el.classList.remove('flash')), 300);
 }
 
-// ① 핵심 숫자 카드. opts.recLens: 스타일의 권장 렌즈(현재 렌즈와 다를 때만)
+// ① 핵심 숫자 카드. opts.recLens: 스타일 recommend 조건을 현재 렌즈가 못 맞출 때 { need, ok }
 function renderKeyCard(r, opts = {}) {
   const cam = r.camera, isAv = r.mode === 'Av';
   const num = (key, text) => `<b class="num" data-key="${key}">${text}</b>`;
   const capped = r.flags.some((f) => f.type === 'isoCapped' || f.type === 'tooDark');
   const evLabel = `${r.light.label}(EV ${r.ev}${r.est ? ', 추정' : ''})`;
   const modeLabel = r.cmode || 'Av';
-  const context = `${cam.short} · ${r.lens.label}${r.cropNote ? ` · ${r.cropNote}` : ''}${r.adapter ? ' · <span class="muted">어댑터 필요</span>' : ''}${opts.recLens ? ` · <span class="info">권장 렌즈 ${opts.recLens.tab}</span>` : ''}`;
+  const context = `${cam.short} · ${r.lens.label}${r.cropNote ? ` · ${r.cropNote}` : ''}${r.adapter ? ' · <span class="muted">어댑터 필요</span>' : ''}${opts.recLens ? ` · <span class="info">권장 ${opts.recLens.need}${opts.recLens.ok.length ? ` · 내 렌즈 중 ${opts.recLens.ok.map((l) => l.tab).join(', ')}` : ' (내 렌즈 중엔 없음)'}</span>` : ''}`;
   return isAv ? `
     <section class="card key">
       <p class="sub">${context}</p>
@@ -667,7 +708,7 @@ function renderTipsCard(r) {
 
 // ---------- 설정 ----------
 function renderSettings(view) {
-  const cam = camera(), cur = lensId();
+  const cam = camera();
   // page: 숫자 = PDF 쪽수, 문자열 = 온라인 가이드 URL
   const pageTxt = (pages) => {
     if (!pages.length) return '<em class="warn">메뉴 위치 미확인</em>';
@@ -712,7 +753,8 @@ function renderSettings(view) {
     <h2 class="sec">내 카메라</h2>
     <a class="card press mycam" href="#camera.settings"><span class="txt"><b>${cam.name}</b><small>${cam.verified ? '매뉴얼 검증 완료' : '검증 전'} · 누르면 변경</small></span><span class="chev">›</span></a>
     <h2 class="sec">내 렌즈</h2>
-    <div class="list">${lensRadios(cam, cur)}</div>
+    <p class="lead">가진 렌즈를 모두 체크. 체크한 렌즈만 결과 화면 버튼으로 나옵니다.</p>
+    <div class="list">${lensChecks(cam)}</div>
     <h2 class="sec">사진 분석</h2>
     <section class="card analyze">
       <p class="lbl">분석 모드</p>
@@ -727,7 +769,7 @@ function renderSettings(view) {
     ${cmodes}
     <p class="lead small">메뉴명은 영문 매뉴얼 기준이고 괄호 안 한글은 추정입니다. 카메라에서 확인 후 알려주면 확정합니다.</p>
     <button type="button" class="btn press" id="setupDone">${setupDone() ? '등록 완료됨 (다시 누르면 해제)' : '등록 완료'}</button>`;
-  bindLensRadios(view);
+  bindLensChecks(view);
   view.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
     store.set(K.refMode, b.dataset.mode);
     view.querySelectorAll('[data-mode]').forEach((x) => { const on = x.dataset.mode === b.dataset.mode; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });

@@ -36,7 +36,7 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   // (b) 조리개 override (숫자는 compute()로 넘길 뿐 features에서 오지 않음)
   const override = {};
   if (f.dof === 'deep') override.aperture = 5.6;
-  else override.apRule = 'portrait'; // shallow·medium: 상황 기본 조리개 (exposure.js가 scene.apRule보다 우선 적용)
+  else override.apRule = 'portrait'; // shallow·medium: 렌즈의 portraitAp (exposure.js가 scene.apRule보다 우선 적용)
   const settings = compute(camera.id, scene.id, subjectId, lens.id, override);
 
   // (b)(c) 렌즈 요구 → (i) 판정

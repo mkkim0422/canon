@@ -68,6 +68,11 @@ for (const l of D.LENSES) {
   for (const k of ['mount', 'wide', 'tele', 'apMin', 'apMax', 'is', 'minFocus']) if (l[k] !== f[k]) fail(`LENSES.${l.id}.${k} ${l[k]} ≠ facts ${f[k]}`);
   if (f.isStops != null && l.isStops !== f.isStops) fail(`LENSES.${l.id}.isStops 불일치`);
   if (l.portraitFocal < l.wide || l.portraitFocal > l.tele) fail(`LENSES.${l.id}.portraitFocal 범위 밖`);
+  // portraitAp 규칙: f/1.4→2, f/1.8·2→2.2, f/2.8→2.8, f/4→4 (그 외는 apMin 그대로)
+  const ruleAp = l.apMin <= 1.4 ? 2 : l.apMin <= 2 ? 2.2 : l.apMin <= 2.8 ? 2.8 : l.apMin <= 4 ? 4 : l.apMin;
+  if (l.portraitAp !== ruleAp) fail(`LENSES.${l.id}.portraitAp ${l.portraitAp} ≠ 규칙값 ${ruleAp}`);
+  if (!D.APERTURES.includes(l.portraitAp)) fail(`LENSES.${l.id}.portraitAp 표준값 아님`);
+  if (l.is && l.isStops == null) warn(`LENSES.${l.id}: IS 스톱 수 미확인 → isStopsDefault(${D.CAMERA_COMMON.isStopsDefault}) 적용`);
   if (!l.chip || !l.tab) fail(`LENSES.${l.id}: chip/tab 표기 필요`);
 }
 
@@ -95,13 +100,8 @@ if (D.SCENES.length !== 8) fail(`상황은 8개 고정인데 ${D.SCENES.length}�
 for (const s of D.SCENES) {
   if (!D.LIGHTS.find((l) => l.id === s.light)) fail(`SCENES.${s.id}.light '${s.light}' 없음`);
   if (!['Av', 'M'].includes(s.mode)) fail(`SCENES.${s.id}.mode는 Av 또는 M`);
-  for (const lens of D.LENSES) {
-    const ap = s.aperture[lens.id];
-    if (ap == null) fail(`SCENES.${s.id}.aperture.${lens.id} 없음`);
-    else if (ap < lens.apMin || ap > lens.apMax) fail(`SCENES.${s.id}.aperture.${lens.id}=${ap} 렌즈 범위(f/${lens.apMin}~${lens.apMax}) 밖`);
-    else if (!D.APERTURES.includes(ap)) fail(`SCENES.${s.id}.aperture.${lens.id}=${ap} 표준값 아님`);
-    if (s.id !== 'outdoorSunny' && s.mode === 'Av' && lens.apMin < 2.2 && (ap < 2.2 || ap > 2.8)) fail(`SCENES.${s.id}.aperture.${lens.id}: 밝은 단렌즈 인물 기본은 f/2.2~2.8`);
-  }
+  if ('aperture' in s) fail(`SCENES.${s.id}.aperture: 렌즈별 숫자 금지. apRule('portrait'|'wideOpen')로`);
+  if (s.apRule && !['portrait', 'wideOpen'].includes(s.apRule)) fail(`SCENES.${s.id}.apRule '${s.apRule}'`);
   if (Math.abs(s.ec) > F.ecMax) fail(`SCENES.${s.id}.ec 범위 밖`);
   if ('isoMax' in s) fail(`SCENES.${s.id}.isoMax는 바디(isoUsable)에서 읽는다. 상황에 두지 말 것`);
   if (s.wb !== 'awbAmb') fail(`SCENES.${s.id}.wb는 전 상황 'awbAmb' (프리셋은 조정 규칙으로)`);
@@ -113,7 +113,8 @@ for (const s of D.SCENES) {
   if (!Array.isArray(s.tips)) fail(`SCENES.${s.id}.tips 배열 필요`);
   for (const [key, c] of Object.entries(s.perCombo || {})) {
     const [lensId, subId] = key.split('.');
-    if (!D.LENSES.find((l) => l.id === lensId) || !D.SUBJECTS.find((u) => u.id === subId)) fail(`SCENES.${s.id}.perCombo '${key}' id 없음`);
+    const lensOk = ['*', 'slow', 'fast'].includes(lensId) || D.LENSES.find((l) => l.id === lensId);
+    if (!lensOk || !D.SUBJECTS.find((u) => u.id === subId)) fail(`SCENES.${s.id}.perCombo '${key}' 키는 '렌즈id|slow|fast|*.피사체'`);
     if (c.minShutter != null && !D.SHUTTERS.some((x) => approx(x, c.minShutter))) fail(`SCENES.${s.id}.perCombo '${key}' minShutter 표준값 아님`);
     if (c.adjustFirst) checkRule(`SCENES.${s.id}.perCombo '${key}'.adjustFirst`, c.adjustFirst, s.mode === 'M');
     if (c.adjustLast) checkRule(`SCENES.${s.id}.perCombo '${key}'.adjustLast`, c.adjustLast, s.mode === 'M');
@@ -142,6 +143,9 @@ for (const st of D.STYLES) {
   }
   if (o.dialExtra && !Array.isArray(o.dialExtra)) fail(`STYLES.${st.id}.override.dialExtra 배열 필요`);
   if (o.mode && sc && o.mode !== sc.mode && !o.why) fail(`STYLES.${st.id}: 모드를 바꾸면 override.why로 이유를 써야 함`);
+  if (!st.recommend || typeof st.recommend !== 'object') fail(`STYLES.${st.id}.recommend 필요 (빈 객체 허용)`);
+  else for (const k of Object.keys(st.recommend)) if (!['maxAp', 'minFocal', 'maxWide'].includes(k)) fail(`STYLES.${st.id}.recommend.${k}: maxAp|minFocal|maxWide만`);
+  if (o.apRule && !['portrait', 'wideOpen'].includes(o.apRule)) fail(`STYLES.${st.id}.override.apRule`);
   if (!st.conditions || !st.failure) fail(`STYLES.${st.id}: conditions/failure 필요`);
   if (!('image' in st)) fail(`STYLES.${st.id}: image 슬롯 필요 (null 허용)`);
   if (st.image && !fs.existsSync(path.join(root, st.image))) fail(`STYLES.${st.id}.image '${st.image}' 파일 없음`);
@@ -178,6 +182,11 @@ for (const fam of FAMILIES) {
 }
 if (!/C1|C2/.test(D.DIALS.ff2dial.av(sampleR)[0])) fail('DIALS.ff2dial.av 첫 단계는 C 모드 다이얼이어야 함');
 
+// 10b) portraitAp 적용 확인: 모든 바디×렌즈에서 야외 그늘(Av) 조리개 = lens.portraitAp
+for (const cam of D.CAMERAS) for (const l of D.compatibleLenses(cam)) {
+  const r = D.compute(cam.id, 'outdoorShade', 'still', l.id);
+  if (r.aperture !== l.portraitAp) fail(`${cam.short}×${l.id}: 야외 그늘 조리개 f/${r.aperture} ≠ portraitAp f/${l.portraitAp}`);
+}
 // 11) 1/8000 바디에서 야외 맑음 자동 조임이 덜 조여지는지 (shutterFastest를 바디에서 읽는지)
 {
   const base = D.CAMERAS[0];

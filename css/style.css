@@ -78,6 +78,11 @@ b { font-weight: 600; color: var(--title); }
 
 /* 렌즈 선택: 채워진 pill 버튼 */
 .lens-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+/* 결과 화면 렌즈 칩: 줄바꿈 대신 가로 스크롤(렌즈가 3개 이상이어도 한 줄). 스크롤바 숨김 */
+.lens-row.scroll { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin-left: -20px; margin-right: -20px; padding: 0 20px 4px; scroll-snap-type: x proximity; }
+.lens-row.scroll::-webkit-scrollbar { display: none; }
+.lens-row.scroll .lens-btn { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
+.lens-row.scroll .lbl { flex: 0 0 auto; }
 .lens-row .lbl { font-size: 13px; color: var(--sub); margin-right: 4px; }
 .lens-btn { font: inherit; letter-spacing: inherit; font-size: 14px; font-weight: 600; height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: var(--pill); color: var(--body); transition: background-color .15s; }
 .lens-btn.on { background: var(--accent); color: #fff; }

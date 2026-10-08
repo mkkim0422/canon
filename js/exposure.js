@@ -57,13 +57,15 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
   const lens = byId(LENSES, lensId);
   const light = byId(LIGHTS, ov.light || scene.light);
   const mode = ov.mode || scene.mode;
-  const combo = (scene.perCombo && scene.perCombo[lens.id + '.' + subject.id]) || null;
+  // 조합 예외: '렌즈id.피사체' → 'slow|fast.피사체'(최대 개방 f/4 이상이면 slow) → '*.피사체'
+  const pc = scene.perCombo || {};
+  const combo = pc[lens.id + '.' + subject.id] || pc[(lens.apMin >= 4 ? 'slow' : 'fast') + '.' + subject.id] || pc['*.' + subject.id] || null;
   const T = tablesFor(camera);
 
-  // 조리개: override.aperture → override.apRule('portrait' = 상황 기본값, 'wideOpen' = 렌즈 최대 개방) → 상황값(렌즈별) → 렌즈 범위로 클램프
-  let ap = ov.aperture != null ? ov.aperture
-    : ov.apRule === 'wideOpen' ? lens.apMin
-    : scene.aperture[lens.id]; // apRule 'portrait' 또는 없음
+  // 조리개: override.aperture → apRule(override 우선, 없으면 scene.apRule, 기본 'portrait') → 렌즈 범위로 클램프
+  //   'portrait' = lens.portraitAp (f/1.4→2, f/1.8·2→2.2, f/2.8→2.8, f/4→4), 'wideOpen' = lens.apMin
+  const apRule = ov.apRule || scene.apRule || 'portrait';
+  let ap = ov.aperture != null ? ov.aperture : apRule === 'wideOpen' ? lens.apMin : lens.portraitAp;
   const apNotes = [];
   if (ap < lens.apMin) { apNotes.push(`이 렌즈 최대 개방 f/${lens.apMin}에 맞춤`); ap = lens.apMin; }
   if (ap > lens.apMax) ap = lens.apMax;
@@ -74,7 +76,10 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
 
   // 셔터 하한: 피사체 움직임과 핸드헬드 한계(환산 초점거리) 중 빠른 쪽
   const effFocal = Math.round(lens.portraitFocal * camera.crop);
-  const hand = ov.tripod ? Infinity : Math.min(CAMERA_COMMON.handheldCap, (lens.is ? CAMERA_COMMON.isGainFactor : 1) / effFocal);
+  // IS 여유 = 2^(isStops−2)배 (isStops 미확인이면 isStopsDefault=4 → ×4), 상한 1/15. diagnose.js와 같은 규칙.
+  const isStops = lens.is ? (lens.isStops != null ? lens.isStops : CAMERA_COMMON.isStopsDefault) : 0;
+  const slack = lens.is ? Math.pow(2, Math.max(0, isStops - 2)) : 1;
+  const hand = ov.tripod ? Infinity : Math.min(CAMERA_COMMON.handheldCap, slack / effFocal);
   const minShutter = ov.minShutter != null ? ov.minShutter : (combo && combo.minShutter) || subject.minShutter;
   const tReq = atMost(T.shutters, Math.min(minShutter, hand));
   const isoMax = ov.isoMax != null ? ov.isoMax : camera.isoUsable;
@@ -90,7 +95,7 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
   const isKid = subject.id === 'kid';
   const afAreaName = isKid ? camera.afAreaKid : camera.afAreaStill;
   const r = {
-    camera, scene, subject, lens, light, mode, aperture: ap, ec, isoMax, minShutter: tReq,
+    camera, scene, subject, lens, light, mode, aperture: ap, apRule, ec, isoMax, minShutter: tReq,
     ev: light.ev, est: !!light.est, evEff, apNotes, flags: [],
     effFocal, cropNote: camera.crop !== 1 ? `환산 ${effFocal}mm` : '',
     adapter: camera.mount === 'RF' && lens.mount === 'EF',

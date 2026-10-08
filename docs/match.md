@@ -7,7 +7,7 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 - 노출보정은 **현재 상황**(SCENES[scene].ec)에서만 온다. 레퍼런스가 역광이라고 +1을 주지 않는다. 역광 효과를 원하면 `linkSceneId: 'backlit'`으로 상황을 바꾸게 안내한다.
 - Features의 어떤 값도 숫자로 직접 쓰지 않는다. (dof 'deep' → "조리개 5.6"은 override로 compute()에 넘겨서 계산 결과를 받는 것이지 Features가 숫자를 준 것이 아니다.)
 - 분석 실패·불확실(`lightConfidence < 0.5`, light 'unknown')이면 상황 추천(sameSceneId)은 null. 나머지 규칙은 계속 적용. (단, rimLight·backlit은 confidence와 무관하게 'backlit'.)
-- compute()의 `override.apRule`: 'portrait' = 상황 기본 조리개(SCENES[scene].aperture[lens]), 'wideOpen' = 렌즈 최대 개방(lens.apMin). `override.aperture`가 있으면 그것이 우선. (exposure.js에 이 규칙을 읽는 최소 수정이 들어 있다.)
+- compute()의 `override.apRule`: 'portrait' = 렌즈의 인물 기본 조리개(LENSES[lens].portraitAp: f/1.4→2, f/1.8·2→2.2, f/2.8→2.8, f/4→4), 'wideOpen' = 렌즈 최대 개방(lens.apMin). `override.aperture`가 있으면 그것이 우선. (exposure.js에 이 규칙을 읽는 최소 수정이 들어 있다.)
 
 ## Features 스키마 (analyze.js의 validateFeatures가 보장)
 | 필드 | 허용값 | 밖이면 |
@@ -62,7 +62,7 @@ match.js는 이 문서를 구현한 것이어야 한다. 규칙을 바꾸거나 
 ### (b) dof → 조리개 override · 렌즈 요구
 | dof | override | lensRequirement | possible |
 |---|---|---|---|
-| shallow | `{ apRule: 'portrait' }` (= 상황 기본 조리개) | `{ maxAp: 2.2 }` | 렌즈 조건 충족 시 `배경 강하게 흐림` / how: "f/{aperture}, 피사체와 배경 3m 이상 떼기" |
+| shallow | `{ apRule: 'portrait' }` (= lens.portraitAp) | `{ maxAp: 2.2 }` | 렌즈 조건 충족 시 `배경 강하게 흐림` / how: "f/{aperture}, 피사체와 배경 3m 이상 떼기" |
 | medium | `{ apRule: 'portrait' }` | 없음 | `적당한 배경 분리` / how: "f/{aperture}, 눈에 초점" |
 | deep | `{ aperture: 5.6 }` | 없음 | `앞뒤 모두 선명` / how: "f/{aperture}, 가운데 사람 얼굴에 초점" |
 
