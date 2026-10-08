@@ -1,5 +1,7 @@
 # 원본 샘플 PNG(장당 7~9MB)는 저장소에 넣지 않음. 앱은 img/*.jpg만 사용.
 sample/
+# 실사진(개인 JPEG, test-diag.html S_LOW 재검증용)은 저장소에 넣지 않음
+img/real/
 # OS / 편집기
 Thumbs.db
 .DS_Store

@@ -114,4 +114,8 @@ bad·warn이 하나도 없으면 info '설정은 문제없음 / 구도·순간�
 
 ## test-diag.html
 img/ 샘플 9장 + 캔버스 변형(블러 3px · brightness 0.6 · brightness 1.4) 27장 = 36장을 EXIF 없는 경로로 돌려 sharpness / 얼굴 밝기 / 전체 밝기 / 하이라이트 / 섀도 / pixels 시간 / lights 5칸 / findings 표. 아래에 가짜 EXIF 7개(맑음 Av · 어두운 실내 Av(low) · P 모드 · 흐림 +0.3 Av · 역광 +1 Av · 고ISO 12800 Av · SCN Portrait)로 EXIF 경로(sceneGuess·confidence·next·findings) 표. 각 행에 기대값(sceneGuess·confidence·mode·blur)과 ✓/✗. 로컬 서버 또는 file://(--allow-file-access-from-files)로 열 것(img/ fetch).
-img/real/*.jpg(실사진)는 아직 없음 — L10에서 행 추가 예정(정적 페이지라 파일 목록은 수동 지정).
+세 번째 표 '실사진': `img/real/1.jpg` ~ `9.jpg` 중 존재하는 파일만 자동으로 돌린다(정적 서버라 디렉터리 나열이 안 되어 이름을 고정). 원본 File → readExif(실제) → 1024px 축소본 → pixels → diagnose(실제 EXIF). sharpness가 S_LOW 미만이면 빨간 숫자. 요약 줄에 'S_LOW 미만 n장'이 나오므로 실제로 흔들린 장수와 맞는지 눈으로 확인한다.
+
+### S_LOW 실사진 재검증
+- 2026-10-08 현재 `img/real/`에 실사진 없음. 재검증 전까지 S_LOW = 12(AI 샘플 근거) 유지.
+- 재검증 절차: 6D2 원본 JPEG(선명한 것 5장 이상 + 흔들린 것 2장 이상)을 img/real/1~9.jpg로 넣고 test-diag.html을 연다. 선명한 사진의 sharpness 최소값과 흔들린 사진의 최대값 사이에 S_LOW가 있으면 유지, 아니면 그 두 값의 기하평균으로 바꾸고 이 절에 수치를 적는다. `img/real/`은 .gitignore 대상(개인 사진, 저장소에 올리지 않음).

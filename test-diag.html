@@ -27,8 +27,11 @@
 <p class="lead">샘플 9장 + 블러(3px)·어둡게(−40%)·밝게(+40%) 변형 27장 = 36장. 1024px 축소본에서 pixels.js → diagnose.js. 바디 eos6d2, 렌즈 ef50. 샘플엔 EXIF가 없으므로 EXIF 없는 경로.</p>
 <div id="out">실행 중…</div>
 <p id="sum"></p>
-<h2>EXIF 있는 경로 (가짜 exif 3개 × softKid 픽셀)</h2>
+<h2>EXIF 있는 경로 (가짜 exif × softKid 픽셀)</h2>
 <div id="out2"></div>
+<h2>실사진 (img/real/1.jpg ~ 9.jpg, 있는 것만)</h2>
+<p class="lead">카메라에서 바로 옮긴 원본 JPEG을 img/real/1.jpg … 9.jpg 이름으로 넣으면 실제 EXIF 경로로 진단한다. S_LOW 재검증용: 선명한 사진은 sharpness ≥ S_LOW, 흔들린 사진은 그 아래여야 한다.</p>
+<div id="out3">확인 중…</div>
 <script src="js/data.js"></script>
 <script src="js/exposure.js"></script>
 <script src="js/dials.js"></script>
@@ -135,6 +138,37 @@ function toImageData(img, filter) {
   document.getElementById('out2').innerHTML = `<p id="sum2">기대값 일치 ${pass}/${FAKES.length}</p><table>
     <thead><tr><th>가짜 EXIF</th><th>exifSummary</th><th>EV100</th><th>sceneGuess</th><th>subject</th><th>next (compute)</th><th>lights</th><th>findings</th><th>검증</th></tr></thead>
     <tbody>${rows2.join('')}</tbody></table>`;
+
+  // 실사진: img/real/1.jpg ~ 9.jpg 중 있는 것만. 원본 File → readExif(실제) → 축소본 → pixels → diagnose(실제 EXIF).
+  const REAL = Array.from({ length: 9 }, (_, i) => `img/real/${i + 1}.jpg`);
+  const rows3 = [], realS = [];
+  for (const path of REAL) {
+    let blob;
+    try { const res = await fetch(path); if (!res.ok) continue; blob = await res.blob(); } catch (e) { continue; }
+    if (!/jpe?g/i.test(blob.type) && !/jpe?g$/i.test(path)) continue;
+    const file = new File([blob], path.split('/').pop(), { type: 'image/jpeg' });
+    const exif = await readExif(file);
+    const img = await loadImg(URL.createObjectURL(blob));
+    const { data, canvas } = toImageData(img, 'none');
+    const px = analyzePixels(data, await detectFaces(canvas));
+    const d = diagnose(exif, px, CAM, LENS);
+    const n = d.next;
+    realS.push(px.sharpness);
+    rows3.push(`<tr>
+      <td><img src="${canvas.toDataURL('image/jpeg', 0.6)}" alt=""><div class="muted">${esc(file.name)} · ${Math.round(file.size / 1024)}KB</div></td>
+      <td>${d.exifSummary ? esc(d.exifSummary) : '<span class="muted">EXIF 없음</span>'}<div class="muted">${exif && exif.model ? esc(exif.model + ' · ' + (exif.lens || '')) : ''}</div></td>
+      <td class="num ${px.sharpness < DIAG.S_LOW ? 'sev-bad' : ''}">${px.sharpness.toFixed(1)}</td>
+      <td class="num">${Math.round(px.faceLuma * 100)}%${px.faceEstimate ? '<span class="muted"> 추정</span>' : ''} / ${Math.round(px.imageLuma * 100)}%</td>
+      <td class="num">${(px.clipping.highlights * 100).toFixed(1)}%</td>
+      <td>${d.sceneGuess || '<span class="muted">null</span>'}${d.sceneConfidence === 'low' ? ' <span class="muted">(대략)</span>' : ''} · ${d.subjectGuess}</td>
+      <td>${n ? `f/${n.aperture} · EC ${fmtEC(n.ec)} · ${n.mode === 'Av' ? (n.cmode || 'Av') : 'M'} · ${fmtShutter(n.shutter)} · ISO ${n.iso}` : '<span class="muted">null</span>'}</td>
+      <td>${lightsCell(d.lights)}</td>
+      <td>${d.findings.map((x) => `<div class="sev-${x.sev}"><b>${esc(x.title)}</b> — ${esc(x.detail)}</div>`).join('')}</td>
+    </tr>`);
+  }
+  document.getElementById('out3').innerHTML = rows3.length ? `<p id="sum3">실사진 ${rows3.length}장 · sharpness 최소 ${Math.min(...realS).toFixed(1)} · 최대 ${Math.max(...realS).toFixed(1)} · S_LOW ${DIAG.S_LOW} 미만 ${realS.filter((x) => x < DIAG.S_LOW).length}장 (흔들린 사진 수와 맞는지 눈으로 확인)</p><table>
+    <thead><tr><th>사진</th><th>EXIF</th><th>sharpness</th><th>얼굴/전체 밝기</th><th>하이라이트</th><th>sceneGuess · subject</th><th>next</th><th>lights</th><th>findings</th></tr></thead>
+    <tbody>${rows3.join('')}</tbody></table>` : '<p id="sum3" class="muted">실사진 없음 — img/real/1.jpg~9.jpg를 넣으면 이 표가 채워진다. S_LOW 재검증은 그때.</p>';
 })();
 </script>
 </body>

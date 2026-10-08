@@ -45,7 +45,7 @@
 - `js/pixels.js` — 온디바이스 픽셀 분석(동기): `sharpness`(라플라시안 분산) · `clipping` · `faceRegion` · `regionLuma` · `analyzePixels`. `detectFaces`만 비동기(FaceDetector). 숫자만 계산하고 판정하지 않는다.
 - `js/diagnose.js` — `diagnose(exif, pixels, cameraId, lensId)`. docs/diagnose.md의 구현. 임계값은 `DIAG` 상수 하나.
 - `docs/diagnose.md` — '내 사진 진단' 규칙표와 S_LOW 산출 근거. **규칙·임계값 수정은 이 문서 먼저.**
-- `test-diag.html` — 샘플 9장 + 변형 27장(블러·어둡게·밝게) + 가짜 EXIF 3개 진단 표. 로컬 서버로 열 것.
+- `test-diag.html` — 샘플 9장 + 변형 27장(블러·어둡게·밝게) + 가짜 EXIF 7개(기대값 ✓/✗) + 실사진 `img/real/1~9.jpg`(있는 것만, S_LOW 재검증용. 개인 사진이라 git 제외) 진단 표. 로컬 서버로 열 것.
 - `js/analyze.js` — `analyzeImage(file, mode, opts)`. mock은 파일명(basename, 대소문자 무시)으로 MOCK_FEATURES를 돌려주고 0.8초 지연. gemini는 **generateContent REST 직접 호출**: 모델은 상수 `GEMINI_MODEL` 하나(설정에 노출 금지), 프롬프트는 상수 `GEMINI_PROMPT`(영문, Features 스키마와 enum 정의, "숫자·카메라 설정 금지"), `generationConfig.responseSchema`에 Features 스키마, 1024px·JPEG 0.85 축소본만 전송(원본 금지), 20초 AbortController, 키는 localStorage `cck.geminiKey`(opts.key로 대체 가능). 오류 문구 고정: 400/401/403 'API 키를 확인해 주세요' · 429 '요청이 많아요. 잠시 후 다시' · 차단(finishReason SAFETY 등, promptFeedback.blockReason) '이 사진은 분석할 수 없어요. 다른 사진으로' · 파싱 실패 '응답 형식 오류' · 그 외 '분석 서버 오류'. 응답은 반드시 `validateFeatures()`를 거친다(허용값 밖 치환, 숫자 필드 제거). **이미지·응답을 localStorage·콘솔에 남기지 않는다**(`GEMINI_DEBUG`는 커밋 시 false).
 - `docs/release-notes.md` — 출시 전 필수 항목. **스토어 출시 전 API 키를 중계 서버(Cloudflare Worker 등)로 옮길 것.** 사용량 제한·구독 검증도 중계에서.
 - `js/mock-features.js` — img/ 샘플 9장의 Features. STYLES와 모순되면 STYLES 우선.

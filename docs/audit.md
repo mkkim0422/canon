@@ -1,4 +1,4 @@
-# 전체 점검 (K) — 2026-10-08, 커밋 0c0eb46 기준
+# 전체 점검 (K) — 2026-10-08, 커밋 0c0eb46 기준 (1~4절). L 반영 현황은 5절, L11 재점검은 6절
 
 코드 수정 없이 점검만 했다. 스크린샷 18장은 `docs/screens/audit/`에 있다(요구 16장 + 360px 폭 2장). 라이트 테마, 헤드리스 Chrome을 DevTools 프로토콜로 제어해 실시간 렌더 후 캡처. 상태 주입은 localStorage(cck.camera/lens/setupDone)와 sessionStorage(cck.ref/cck.diag).
 K 지시 원문은 이번 세션에 없어 "코드 수정 없이 점검 · 스크린샷 16장 · docs/audit.md 작성"이라는 요약과 인수인계서.txt를 근거로 범위를 잡았다.
@@ -111,6 +111,23 @@ K 지시 원문은 이번 세션에 없어 "코드 수정 없이 점검 · 스�
 | L6 | 완료 | P → warn 'P·오토 모드로 찍힘', SCN 계열만 bad |
 | L7 | 완료 | 핸드헬드 2^(isStops−2) exposure·diagnose·facts 통일 |
 | L8·L9 | 불필요 | 위 A5·A6 |
-| L10 | 대기 | img/real/ 실사진 없음 |
-| L11 | 부분 | check.js·test.html(mock 27조합)·test-diag(7/7) 통과. audit 본문 재점검은 L10 뒤 |
+| L10 | 완료(행 추가) / 재검증 대기 | test-diag.html 세 번째 표: `img/real/1~9.jpg` 중 있는 것만 실제 EXIF 경로로 진단, S_LOW 미만 장수 요약. 실사진이 아직 없어 S_LOW 12 유지. `img/real/`은 .gitignore. 절차는 diagnose.md 'S_LOW 실사진 재검증' |
+| L11 | 완료 | 아래 6절 |
+
+## 6. L11 재점검 (2026-10-08, L1~L10 반영 후)
+자동 검사: `node check.js` 통과(5바디 × 렌즈 12종 호환 조합) · test.html mock 9장 · test-diag.html 36장 + 가짜 EXIF 7/7 일치 + 실사진 0장(없음). pixels 평균 5ms · 최대 14ms.
+
+| 3절 항목 | 상태 | 비고 |
+|---|---|---|
+| A1 G 미반영 | 해소 | LENSES EF 8 + RF 4, lens.portraitAp / scene.apRule, 다중 렌즈 체크, 렌즈 칩 가로 스크롤(.lens-row.scroll), STYLES.recommend. match.md·match.js의 apRule 'portrait'는 lens.portraitAp를 가리킴 |
+| A2 렌즈 종속 문구 | 해소 | outdoorSunny '하얀 옷…' → '조리개 한 스톱 조이기 ({apStop}). 최고 셔터 {maxShutter} 초과 방지'로 일반화 |
+| A3 diagnose 규칙 | 해소 | L2~L6 반영. 1/60 f/1.8 ISO3200 → indoorEvening (대략) |
+| A4 핸드헬드 불일치 | 해소 | exposure·diagnose·facts 모두 2^(isStops−2), isStops 없으면 4스톱, 상한 1/15 |
+| A5·A6 (L8·L9) | 수정 불필요 | 변경 없음 |
+| A7 문서 불일치 | 부분 | CLAUDE.md가 기준. 인수인계서.txt는 구버전 그대로(개인 정보 포함, 저장소 공개 시 제외 검토 유지) |
+| A8 배포물 | 미해소 | 아티팩트 재배포·안드로이드 www 동기화 미확인(네이티브 폴더 이 PC에 없음). 바디가 5종(6D2·5D4·R6 II·R50·R8)으로 늘었으니 재배포 시 전체 js 동반 |
+| A9 실측 공백 | 미해소 | gemini 실측(키 없음) · 실사진 S_LOW(img/real 없음) · 폰 처리 시간 |
+| A10 작은 것들 | 부분 | theme-color #f2f4f6로 수정됨. 홈 탭 라벨 '상황으로 / 원하는 사진 / 사진으로'로 축약(360px 두 줄 해소). EXIF 보정 표시 반올림은 정보성 유지 |
+
+남은 것: A8(배포), A9(실측 3건). 다음 바디 추가 순서는 CLAUDE.md대로 90D → 850D → 6D → 80D → 200D II.
 추가: 역광 상황 현장 조정 1번을 "해가 화면 안에 들어오면 → 머리·나무 뒤로 숨기기"로(사용자 실전 플레어 피드백). theme-color #f2f4f6. 홈 탭 라벨 축약.
