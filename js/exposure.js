@@ -93,6 +93,9 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
   if (combo && combo.adjustLast) adjust.push(combo.adjustLast);
 
   const isKid = subject.id === 'kid';
+  // 최소 셔터 메뉴가 없는 바디(hasMinShutter: false, 예 R50): Av로는 1/500을 보장할 수 없어 움직이는 아이는 M + ISO AUTO(셔터·조리개 고정, ISO 자동, 노출보정 가능).
+  // 계산은 Av와 같다(셔터 하한 tReq에서 ISO가 정해짐). 문구만 dials.js rf1dial과 app.js가 r.mAuto로 분기.
+  const mAuto = mode === 'Av' && camera.hasMinShutter === false && isKid;
   const afAreaName = isKid ? camera.afAreaKid : camera.afAreaStill;
   const r = {
     camera, scene, subject, lens, light, mode, aperture: ap, apRule, ec, isoMax, minShutter: tReq,
@@ -106,6 +109,7 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
     why: ov.why || scene.why, adjust, tips: ov.tips || scene.tips || [],
     dialExtra: ov.dialExtra || [],
     cmode: camera.hasCModes ? camera.cModes[isKid ? 1 : 0] : null, minShutterDefault: subject.minShutter,
+    mAuto, modeLabel: mAuto ? 'M' : 'Av',   // 핵심 숫자 카드 모드 표기 (cmode가 있으면 cmode 우선)
     tripod: !!ov.tripod,
   };
 
@@ -163,7 +167,7 @@ function flagRules(r) {
     if (f.type === 'tooBright') {
       out.push(['셔터가 깜빡이면 (빛이 너무 강함)', `조리개를 f/${f.aperture}로 조이기`]);
     } else if (f.type === 'isoCapped') {
-      out.push([`지금 밝기면 ISO 상한 ${f.cap}에 걸려 셔터가 ${fmtShutter(f.shutter)}까지 느려지므로`, `MENU → ISO speed settings → Auto range → ${hard}, 또는 더 밝은 자리로`]);
+      out.push([`지금 밝기면 ISO 상한 ${f.cap}에 걸려 셔터가 ${fmtShutter(f.shutter)}까지 느려지므로`, `MENU → ISO speed settings → ${r.camera.isoAutoMaxLabel || 'Auto range'} → ${hard}, 또는 더 밝은 자리로`]);
       if (r.lens.apMin >= 4) out.push(['', 'f/1.8~2 단렌즈로 바꾸면 f/2.2에서 빛을 3배 더 받아 ISO가 1.5스톱 내려감']);
     } else if (f.type === 'tooDark') {
       out.push([`ISO ${f.cap}에서도 셔터가 ${fmtShutter(f.shutter)}라 흔들리면`, '얼굴에 빛이 닿는 자리로 이동하거나 피사체를 멈추게 하기']);

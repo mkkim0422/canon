@@ -91,6 +91,44 @@ const CAMERAS = [
     specUrl: 'http://ph.canon/en/consumer/eos-r6-mark-ii/body/specification',
     verified: true,
   },
+  {
+    // 크롭 미러리스·1다이얼. 스틸 C 모드 없음(Custom shooting mode는 동영상 모드에서만 표시), ISO 자동 최소 셔터 메뉴 없음(Max for Auto만).
+    // 가이드 https://cam.start.canon/en/C011/manual/ (영문 온라인). 사양: UG-11_Reference_0090
+    id: 'eosr50', name: 'EOS R50', short: 'R50', family: 'rf1dial', mount: 'RF', crop: 1.6,
+    isoMin: 100, isoMax: 32000, isoUsable: 6400, isoHard: 12800, isoAutoMaxMin: 400,   // H 51200(C.Fn ISO expansion)은 앱에서 쓰지 않음. Max for Auto 400–32000
+    shutterFastest: 1 / 4000, shutterLongest: 30,   // 전자 선막 기준(기계식 셔터 없음). 전자셔터 1/8000은 앱에서 쓰지 않음
+    hasCModes: false, cModes: [], ecDial: 'button',   // 노출보정 = ▲(노출보정) 버튼 누른 뒤 다이얼 (UG-05_Shooting-1_0070)
+    hasMinShutter: false, isoAutoMaxLabel: 'Max for Auto',   // Min. shutter spd. 메뉴 없음 → 움직이는 아이는 M + ISO AUTO (exposure.js r.mAuto, dials.js rf1dial)
+    afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 12,   // High-speed continuous + 전자 선막 약 12컷/초
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0030.html' },
+      isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Max for Auto', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0090.html',
+        value: 'Max for Auto → {isoUsable}', pathKo: 'ISO 감도 설정 → 자동 최대' },
+      minShutter:   { path: '이 기종엔 최소 셔터 속도 설정이 없음 (ISO speed settings에는 Max for Auto만 있음)', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0090.html', na: true },
+      pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → Portrait → INFO(세부 조정)', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0190.html' },
+      wb:           { path: 'MENU → 촬영 4탭 → White balance', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0160.html' },
+      awbPriority:  { path: 'MENU → 촬영 4탭 → White balance → AWB 선택 후 AF 포인트 선택 버튼 → Ambience priority', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0160.html' },
+      alo:          { path: 'MENU → 촬영 2탭 → Auto Lighting Optimizer', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0120.html' },
+      highIsoNr:    { path: 'MENU → 촬영 5탭 → High ISO speed NR', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0260.html' },
+      antiFlicker:  { path: 'MENU → 촬영 2탭 → Anti-flicker shoot.', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0140.html' },
+      customMode:   { path: '스틸용 C 모드 없음 (설정 5탭 Custom shooting mode (C mode)는 동영상 모드에서만 표시)', page: 'https://cam.start.canon/en/C011/manual/html/UG-09_Set-up_0250.html' },
+      lensAdapter:  { path: 'EF/EF-S 렌즈는 마운트 어댑터 EF-EOS R에 끼워 장착 (EF-M 렌즈 불가)', page: 'https://cam.start.canon/en/C011/manual/html/UG-01_Preparations_0070.html' },
+      // 미러리스 전용 항목. title/value/why는 SETUP_COMMON 기본 문구를 이 바디에서만 덮어쓴다 (app.js renderSettings)
+      subjectDetect: { path: 'MENU → AF 1탭 → Subject to detect → People / Eye detection → Enable', page: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0060.html',
+        value: 'Subject to detect → People, Eye detection → Enable' },
+      shutterMode:   { path: 'MENU → 촬영 6탭 → Shutter mode → Elec. 1st-curtain', page: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0300.html',
+        title: '셔터 모드 전자 선막', value: 'Elec. 1st-curtain',
+        why: '이 기종은 기계식 셔터가 없음. 전자 선막이 기본값이고 앱의 셔터 상한 1/4000은 이 기준. Electronic은 1/8000까지 되지만 실내 LED 플리커·롤링 셔터 왜곡이 생길 수 있음.' },
+      afOperation:   { path: 'MENU → AF 1탭 → AF operation', page: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0040.html' },
+      afArea:        { path: 'MENU → AF 1탭 → AF area', page: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0060.html' },
+      driveMode:     { path: '▶(오른쪽 키) 버튼 → 다이얼로 드라이브 선택 (또는 MENU → 촬영 6탭 → Drive mode)', page: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0120.html' },
+    },
+    pages: { afMode: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0040.html', afArea: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0060.html', drive: 'https://cam.start.canon/en/C011/manual/html/UG-06_AF-Drive_0120.html',
+      avMode: 'https://cam.start.canon/en/C011/manual/html/UG-03_CustomShooting_0040.html', mMode: 'https://cam.start.canon/en/C011/manual/html/UG-03_CustomShooting_0050.html', ec: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0070.html', iso: 'https://cam.start.canon/en/C011/manual/html/UG-05_Shooting-1_0090.html' },
+    manualUrl: 'https://cam.start.canon/en/C011/manual/',
+    specUrl: 'https://cam.start.canon/en/C011/manual/html/UG-11_Reference_0090.html',
+    verified: true,
+  },
 ];
 
 // 1/3스톱 표준값

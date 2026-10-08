@@ -114,7 +114,8 @@ function fillSteps(text, r) {
     .replace('{shutterSteps}', stepsFrom(T.shutters, r.shutter, fmtShutter))
     .replace('{apStop}', (() => { const i = APERTURES.indexOf(r.aperture); const nx = APERTURES[Math.min(APERTURES.length - 1, i + 3)]; return `f/${Math.min(nx, r.lens.apMax)}`; })())
     .replace('{maxShutter}', fmtShutter(r.camera.shutterFastest))
-    .replace(/\{isoHard\}/g, String(r.camera.isoHard));
+    .replace(/\{isoHard\}/g, String(r.camera.isoHard))
+    .replace(/Auto range/g, r.camera.isoAutoMaxLabel || 'Auto range');   // ISO 자동 상한 메뉴명이 다른 바디(R50 = Max for Auto)
 }
 // 설정 문구의 바디 값 치환
 function fillCam(text, cam) {
@@ -641,7 +642,7 @@ function renderKeyCard(r, opts = {}) {
   const num = (key, text) => `<b class="num" data-key="${key}">${text}</b>`;
   const capped = r.flags.some((f) => f.type === 'isoCapped' || f.type === 'tooDark');
   const evLabel = `${r.light.label}(EV ${r.ev}${r.est ? ', 추정' : ''})`;
-  const modeLabel = r.cmode || 'Av';
+  const modeLabel = r.cmode || r.modeLabel || 'Av';
   const context = `${cam.short} · ${r.lens.label}${r.cropNote ? ` · ${r.cropNote}` : ''}${r.adapter ? ' · <span class="muted">어댑터 필요</span>' : ''}${opts.recLens ? ` · <span class="info">권장 ${opts.recLens.need}${opts.recLens.ok.length ? ` · 내 렌즈 중 ${opts.recLens.ok.map((l) => l.tab).join(', ')}` : ' (내 렌즈 중엔 없음)'}</span>` : ''}`;
   return isAv ? `
     <section class="card key">
@@ -652,6 +653,7 @@ function renderKeyCard(r, opts = {}) {
         <div><span>모드</span><b class="num">${modeLabel}</b></div>
       </div>
       <p class="sub">${evLabel} 기준 예상: ${num('shutter', fmtShutter(r.shutter))} · ${num('iso', `ISO ${r.iso}`)}${capped ? ' <span class="warn">· ISO 상한 도달</span>' : ''}</p>
+      ${r.mAuto ? `<p class="sub">M이지만 ISO는 AUTO. 셔터 ${fmtShutter(r.minShutter)}와 조리개를 고정하고 밝기는 카메라가 ISO로 맞춤 (이 기종은 Av에서 최소 셔터를 정할 수 없음)</p>` : ''}
     </section>` : `
     <section class="card key">
       <p class="sub">${context} · <b>M 모드, 수동 ISO</b></p>
@@ -673,12 +675,15 @@ function renderDialCard(r) {
 
   const detail = [];
   if (r.lens.fieldTip) detail.push(r.lens.fieldTip);
-  if (cam.family === 'rf') detail.push('눈 검출 AF가 켜져 있으면 측거점을 고를 필요 없음. 화면에서 눈을 자동으로 잡음');
+  if (cam.mount === 'RF') detail.push('눈 검출 AF가 켜져 있으면 측거점을 고를 필요 없음. 화면에서 눈을 자동으로 잡음');
   if (isAv && cam.hasCModes) {
     detail.push(`${r.cmode} 모드에 포함: ISO 자동 상한 ${r.isoMax}, 최소 셔터 ${fmtShutter(r.minShutterDefault)}`);
     detail.push('모드 다이얼을 다른 데로 돌렸다 오면 노출보정이 0으로 돌아감 (C 모드 특성)');
   }
-  if (isAv && !cam.hasCModes) detail.push(`ISO 자동 상한 ${r.isoMax}, 최소 셔터 ${fmtShutter(r.minShutter)} (이 기종은 C 모드가 없어 메뉴에서 직접)`);
+  if (isAv && !cam.hasCModes && cam.hasMinShutter !== false) detail.push(`ISO 자동 상한 ${r.isoMax}, 최소 셔터 ${fmtShutter(r.minShutter)} (이 기종은 C 모드가 없어 메뉴에서 직접)`);
+  if (isAv && cam.hasMinShutter === false) detail.push(r.mAuto
+    ? `ISO 자동 상한 ${r.isoMax} (${cam.isoAutoMaxLabel || 'Auto range'}). 최소 셔터 메뉴가 없어 M + ISO AUTO로 셔터 ${fmtShutter(r.minShutter)}를 직접 고정`
+    : `ISO 자동 상한 ${r.isoMax} (${cam.isoAutoMaxLabel || 'Auto range'}). 최소 셔터 메뉴가 없어 Av에서는 카메라가 셔터를 정함 (대략 1/환산 초점거리, 추정). 화면 셔터가 ${fmtShutter(r.minShutter)}보다 느리면 ISO를 직접 올리기`);
   detail.push(`${r.af} · ${r.afArea}`, `드라이브 ${r.drive}`, r.afTip,
     `측광 ${r.metering} · WB ${r.wb.label}${r.wb.k !== '자동' ? ` (${r.wb.k})` : ''} · 픽처스타일 ${r.ps}`);
   if (r.apNotes.length) detail.push(r.apNotes.join(' '));
@@ -725,7 +730,8 @@ function renderSettings(view) {
 
   const common = SETUP_COMMON.filter((s) => (!s.onlyMount || s.onlyMount === cam.mount) && (!s.onlyIf || cam.menu[s.onlyIf])).map((s, i) => {
     const m = cam.menu[s.key] || {};
-    return card(i + 1, fillCam(s.title, cam), fillCam(s.value, cam), m.path || '', m.page ? [m.page] : [], s.pathKo, fillCam(s.why || '', cam), s.note);
+    // camera.menu[key]의 title/value/why/pathKo가 있으면 공통 문구를 그 바디에서만 덮어씀 (예: R50 셔터 모드 = 전자 선막, Max for Auto)
+    return card(i + 1, fillCam(m.title || s.title, cam), fillCam(m.value || s.value, cam), m.path || '', m.page ? [m.page] : [], m.pathKo || s.pathKo, fillCam(m.why || s.why || '', cam), s.note);
   }).join('');
 
   let cmodes;
@@ -744,7 +750,7 @@ function renderSettings(view) {
       }).join('')}</div>`;
   } else {
     cmodes = `<h2 class="sec">2. 피사체 세트</h2>
-      <section class="card"><p>이 기종은 C 모드가 없어서 피사체를 바꿀 때 AF 동작·AF 영역·드라이브를 직접 바꿔야 해요. 결과 화면 다이얼 순서에 그 단계가 들어갑니다.</p></section>`;
+      <section class="card"><p>이 기종은 C 모드가 없어서 피사체를 바꿀 때 AF 동작·AF 영역·드라이브를 직접 바꿔야 해요. 결과 화면 다이얼 순서에 그 단계가 들어갑니다.${cam.hasMinShutter === false ? ' 최소 셔터 속도 메뉴도 없어서 움직이는 아이는 M 모드 + ISO AUTO로 셔터 1/500을 직접 고정합니다.' : ''}</p></section>`;
   }
 
   view.innerHTML = `

@@ -24,7 +24,7 @@ const fail = (s) => fails.push(s);
 const warn = (s) => warns.push(s);
 const approx = (a, b) => Math.abs(a - b) / b < 1e-6;
 const MENU_KEYS = ['imageQuality', 'isoAutoRange', 'minShutter', 'pictureStyle', 'wb', 'awbPriority', 'alo', 'highIsoNr', 'antiFlicker', 'customMode', 'lensAdapter'];
-const FAMILIES = ['ff2dial', 'crop2dial', 'crop1dial', 'rf'];
+const FAMILIES = ['ff2dial', 'crop2dial', 'crop1dial', 'rf', 'rf1dial'];
 
 // 3) 바디
 if (!D.CAMERAS.length) fail('CAMERAS가 비어 있음');
@@ -32,7 +32,7 @@ for (const c of D.CAMERAS) {
   const f = F.cameras[c.id];
   const report = c.verified ? fail : warn;
   if (!f) { fail(`CAMERAS.${c.id}: facts.md cameras에 없음`); continue; }
-  for (const k of ['isoMin', 'isoMax', 'isoAutoMaxMin', 'shutterLongest', 'crop', 'mount', 'hasCModes']) if (c[k] !== f[k]) report(`CAMERAS.${c.id}.${k} ${c[k]} ≠ facts ${f[k]}`);
+  for (const k of ['isoMin', 'isoMax', 'isoAutoMaxMin', 'shutterLongest', 'crop', 'mount', 'hasCModes', 'hasMinShutter']) if (c[k] !== f[k]) report(`CAMERAS.${c.id}.${k} ${c[k]} ≠ facts ${f[k]}`);
   if (!approx(c.shutterFastest, f.shutterFastest)) report(`CAMERAS.${c.id}.shutterFastest 불일치`);
   if (!FAMILIES.includes(c.family)) fail(`CAMERAS.${c.id}.family '${c.family}' 는 ${FAMILIES.join('|')} 중 하나`);
   if (!['EF', 'RF'].includes(c.mount)) fail(`CAMERAS.${c.id}.mount`);
@@ -91,7 +91,7 @@ function checkRule(label, rule, isM) {
   if (/\.\s*$/.test(c)) fail(`${label}: 조건 끝에 마침표 "${c}"`);
   if (/^[+-]\d/.test(a)) fail(`${label}: 조치가 "+x"로 시작. "노출보정 +x" 형태로: "${a}"`);
   if (/(^|[^출])보정 [+-]?\d/.test(a)) fail(`${label}: "보정"은 "노출보정"으로: "${a}"`);
-  if (!isM && /12800|\{isoHard\}/.test(a) && !/Auto range/.test(a)) fail(`${label}: ISO 상한 변경은 메뉴 경로(Auto range) 포함: "${a}"`);
+  if (!isM && /12800|\{isoHard\}/.test(a) && !/Auto range|Max for Auto/.test(a)) fail(`${label}: ISO 상한 변경은 메뉴 경로(Auto range 또는 Max for Auto) 포함: "${a}"`);
   if (/12800/.test(a)) fail(`${label}: 바디별 비상 상한은 {isoHard} 플레이스홀더로: "${a}"`);
 }
 
@@ -181,6 +181,15 @@ for (const fam of FAMILIES) {
   }
 }
 if (!/C1|C2/.test(D.DIALS.ff2dial.av(sampleR)[0])) fail('DIALS.ff2dial.av 첫 단계는 C 모드 다이얼이어야 함');
+// 10c) 최소 셔터 메뉴가 없는 바디(hasMinShutter: false): 움직이는 아이는 M + ISO AUTO(r.mAuto, 첫 단계 M), 가만히 있는 사람은 Av. C 모드도 없어야 한다.
+for (const cam of D.CAMERAS.filter((x) => x.hasMinShutter === false)) {
+  const l = D.compatibleLenses(cam)[0].id;
+  const kid = D.compute(cam.id, 'outdoorShade', 'kid', l), still = D.compute(cam.id, 'outdoorShade', 'still', l);
+  if (!kid.mAuto || !/<b>M<\/b>/.test(D.dialSteps(kid)[0])) fail(`${cam.short}: 최소 셔터 메뉴 없음 → 움직이는 아이는 M + ISO AUTO여야 함`);
+  if (still.mAuto || !/<b>Av<\/b>/.test(D.dialSteps(still)[0])) fail(`${cam.short}: 가만히 있는 사람은 Av여야 함`);
+  if (cam.hasCModes) fail(`${cam.short}: hasMinShutter false인데 hasCModes true (C 모드 등록 단계에 Min. shutter spd.가 들어감)`);
+  if (!cam.menu.minShutter.na) fail(`${cam.short}: menu.minShutter.na 필요 (설정 없음 표기)`);
+}
 
 // 10b) portraitAp 적용 확인: 모든 바디×렌즈에서 야외 그늘(Av) 조리개 = lens.portraitAp
 for (const cam of D.CAMERAS) for (const l of D.compatibleLenses(cam)) {
