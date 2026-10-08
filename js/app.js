@@ -740,7 +740,7 @@ function renderSettings(view) {
     cmodes = `<h2 class="sec">2. ${cam.cModes.join('·')} 등록</h2>
       <p class="lead">공통 설정을 끝낸 상태에서 순서대로. ${cam.cModes[0]} = 가만히 있는 사람, ${cam.cModes[1]} = 움직이는 아이.</p>
       <div class="list">${SETUP_CMODE_STEPS.map((base, i) => {
-        const s = Object.assign({}, base, base[cam.family] || (cam.mount === 'RF' ? base.rf : null) || {});   // family별 문구 덮어쓰기. RF 마운트는 family가 달라도 rf 문구
+        const s = Object.assign({}, base, base[cam.family] || (cam.mount === 'RF' ? base.rf : null) || {}, base[cam.id] || {});   // family별 문구 덮어쓰기(RF 마운트는 family가 달라도 rf 문구) + 바디 id별 덮어쓰기(예: 6D 최소 셔터 상한)
         const pages = [];
         let path = s.path || '';
         if (s.menuKey) { const m = cam.menu[s.menuKey]; path = (m.path || '') + (s.pathSuffix || ''); if (m.page) pages.push(m.page); }

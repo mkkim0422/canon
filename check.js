@@ -219,7 +219,8 @@ function checkResult(label, r, isDefault) {
   if (r.shutter < cam.shutterFastest - 1e-9 || r.shutter > cam.shutterLongest) fail(`${label}: 셔터 ${r.shutter} 바디 범위 밖`);
   if (r.iso < cam.isoMin || r.iso > cam.isoMax) fail(`${label}: ISO ${r.iso} 바디 범위 밖`);
   if (!Number.isFinite(r.shutter) || !Number.isFinite(r.iso)) fail(`${label}: NaN`);
-  if (r.mode === 'Av' && r.minShutter > r.subject.minShutter + 1e-9) fail(`${label}: 최소 셔터가 피사체 기준보다 느림`);
+  // minShutterCap 바디(6D 1/250)는 상한으로 묶인 경우를 허용(flag minShutterCapped, 현장 조정에 M + ISO AUTO 안내)
+  if (r.mode === 'Av' && r.minShutter > r.subject.minShutter + 1e-9 && !r.flags.some((f) => f.type === 'minShutterCapped')) fail(`${label}: 최소 셔터가 피사체 기준보다 느림`);
   D.flagRules(r).forEach((rule, i) => checkRule(`${label} flagRules[${i}]`, rule, r.mode === 'M'));
   const steps = D.dialSteps(r);
   if (!steps.length) fail(`${label}: 다이얼 문구 없음`);

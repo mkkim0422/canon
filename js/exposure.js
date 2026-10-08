@@ -80,7 +80,10 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
   const isStops = lens.is ? (lens.isStops != null ? lens.isStops : CAMERA_COMMON.isStopsDefault) : 0;
   const slack = lens.is ? Math.pow(2, Math.max(0, isStops - 2)) : 1;
   const hand = ov.tripod ? Infinity : Math.min(CAMERA_COMMON.handheldCap, slack / effFocal);
-  const minShutter = ov.minShutter != null ? ov.minShutter : (combo && combo.minShutter) || subject.minShutter;
+  let minShutter = ov.minShutter != null ? ov.minShutter : (combo && combo.minShutter) || subject.minShutter;
+  // 최소 셔터 메뉴에 상한이 있는 바디(minShutterCap, 예 6D 1/250): 그보다 빠른 값은 설정할 수 없어 상한으로 묶고 flagRules에서 M + ISO AUTO를 안내
+  const capped = camera.minShutterCap != null && minShutter < camera.minShutterCap - 1e-12;
+  if (capped) minShutter = camera.minShutterCap;
   const tReq = atMost(T.shutters, Math.min(minShutter, hand));
   const isoMax = ov.isoMax != null ? ov.isoMax : camera.isoUsable;
 
@@ -105,13 +108,14 @@ function compute(cameraId, sceneId, subjectId, lensId, ov = {}) {
     wb: WB[ov.wb || scene.wb], ps: ov.ps || scene.ps, metering: ov.metering || scene.metering,
     af: camera.afModes[subject.id], afAreaName,
     afArea: ov.afArea || `${afAreaName}. ${subject.afAreaHint}`,
-    drive: ov.drive || (isKid ? `연속 고속 (${camera.burstFps}컷/초)` : '1매'), afTip: subject.afTip,
+    drive: ov.drive || (isKid ? `${camera.burstLabel || '연속 고속'} (${camera.burstFps}컷/초)` : '1매'), afTip: subject.afTip,
     why: ov.why || scene.why, adjust, tips: ov.tips || scene.tips || [],
     dialExtra: ov.dialExtra || [],
-    cmode: camera.hasCModes ? camera.cModes[isKid ? 1 : 0] : null, minShutterDefault: subject.minShutter,
+    cmode: camera.hasCModes ? camera.cModes[isKid ? 1 : 0] : null, minShutterDefault: capped ? camera.minShutterCap : subject.minShutter,
     mAuto, modeLabel: mAuto ? 'M' : 'Av',   // 핵심 숫자 카드 모드 표기 (cmode가 있으면 cmode 우선)
     tripod: !!ov.tripod,
   };
+  if (capped) r.flags.push({ type: 'minShutterCapped', wanted: subject.minShutter, cap: camera.minShutterCap });
 
   let iso = null, t = null;
 
@@ -166,6 +170,8 @@ function flagRules(r) {
   for (const f of r.flags) {
     if (f.type === 'tooBright') {
       out.push(['셔터가 깜빡이면 (빛이 너무 강함)', `조리개를 f/${f.aperture}로 조이기`]);
+    } else if (f.type === 'minShutterCapped') {
+      out.push(['아이가 흔들리면', `M 모드 + ISO AUTO로 셔터 ${fmtShutter(f.wanted)} 직접 (이 기종 최소 셔터 설정 상한 ${fmtShutter(f.cap)})`]);
     } else if (f.type === 'isoCapped') {
       out.push([`지금 밝기면 ISO 상한 ${f.cap}에 걸려 셔터가 ${fmtShutter(f.shutter)}까지 느려지므로`, `MENU → ISO speed settings → ${r.camera.isoAutoMaxLabel || 'Auto range'} → ${hard}, 또는 더 밝은 자리로`]);
       if (r.lens.apMin >= 4) out.push(['', 'f/1.8~2 단렌즈로 바꾸면 f/2.2에서 빛을 3배 더 받아 ISO가 1.5스톱 내려감']);

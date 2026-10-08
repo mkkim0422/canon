@@ -189,6 +189,113 @@ const CAMERAS = [
     manualUrl: 'https://gdlp01.c-wss.com/gds/3/0300036653/02/EOS_90D_Advanced_User_Guide_EN.pdf',
     verified: true,
   },
+  {
+    // 크롭 DSLR·2다이얼(메인 + 퀵 컨트롤), C1·C2. 매뉴얼: Canon Instruction Manual PDF(eos80d-im3-en, 526쪽, 미러 링크) 쪽수 = 인쇄 쪽수.
+    id: 'eos80d', name: 'EOS 80D', short: '80D', family: 'crop2dial', mount: 'EF', crop: 1.6,
+    isoMin: 100, isoMax: 16000, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 200,   // H 25600 미사용. Auto range 최대 200–16000 (p.152)
+    shutterFastest: 1 / 8000, shutterLongest: 30,
+    hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',
+    afModes: { still: 'One-Shot', kid: 'AI Servo' }, afAreaStill: '1점 AF', afAreaKid: '존 AF', burstFps: 7,   // 고속 연사 약 7.0컷/초 (p.138)
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 142 },
+      isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Auto range', page: 152 },
+      minShutter:   { path: 'MENU → 촬영 2탭 → ISO speed settings → Min. shutter spd.', page: 153 },
+      pictureStyle: { path: 'MENU → 촬영 3탭 → Picture Style → 인물 → INFO 버튼', page: 157 },
+      wb:           { path: 'MENU → 촬영 2탭 → White balance', page: 162 },
+      awbPriority:  { path: 'MENU → 촬영 2탭 → White balance → AWB 선택 후 INFO 버튼 → Ambience priority', page: 163 },
+      alo:          { path: 'MENU → 촬영 2탭 → Auto Lighting Optimizer', page: 169 },
+      highIsoNr:    { path: 'MENU → 촬영 3탭 → High ISO speed NR', page: 170 },
+      antiFlicker:  { path: 'MENU → 촬영 4탭 → Anti-flicker shoot.', page: 179 },
+      customMode:   { path: 'MENU → 설정(공구) 4탭 → Custom shooting mode (C1, C2) → Register settings', page: 445 },
+      lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
+    },
+    pages: { afMode: 116, afArea: 121, drive: 138, avMode: 194, mMode: 196, ec: 200, iso: 148 },
+    manualUrl: 'https://www.lensrentals.com/product-assets/50f5017f-7e41-48c9-8b09-010a0ac7856c/eos80d-im3-en.pdf',
+    verified: true,
+  },
+  {
+    // 풀프레임 DSLR·2다이얼(메인 + 퀵 컨트롤), C1·C2. 2012년 기종: AWB 우선 설정·안티플리커 없음, Min. shutter spd. 상한 1/250, 고속 연사 없음(연속 4.5컷/초), AF 11점(존 AF 없음).
+    id: 'eos6d', name: 'EOS 6D', short: '6D', family: 'ff2dial', mount: 'EF', crop: 1,
+    isoMin: 100, isoMax: 25600, isoUsable: 6400, isoHard: 12800, isoAutoMaxMin: 200,   // L 50·H1 51200·H2 102400 미사용. Auto ISO range 최대 200–25600 (p.110)
+    shutterFastest: 1 / 4000, shutterLongest: 30,
+    hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',
+    minShutterCap: 1 / 250,   // Min. shutter spd. 범위 1/250–1초 (p.111) → 움직이는 아이 1/500은 설정 불가. compute가 1/250으로 묶고 현장 조정에 M + ISO AUTO 안내
+    burstLabel: '연속',       // 고속 연사 모드 없음. 연속 약 4.5컷/초 (p.98)
+    afModes: { still: 'One-Shot', kid: 'AI Servo' }, afAreaStill: '1점 (수동 선택)', afAreaKid: '자동 선택 (11점)', burstFps: 4.5,
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 102 },
+      isoAutoRange: { path: 'MENU → 촬영 3탭 → ISO speed settings → Auto ISO range', page: 110, value: 'Auto ISO range → Maximum {isoUsable}' },
+      minShutter:   { path: 'MENU → 촬영 3탭 → ISO speed settings → Min. shutter spd. (1/250–1초만 가능)', page: 111 },
+      pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → 인물 → INFO 버튼', page: 115 },
+      wb:           { path: 'MENU → 촬영 3탭 → White balance', page: 120 },
+      awbPriority:  { path: '이 기종은 AWB 분위기 우선/화이트 우선 구분이 없음 (AWB 하나)', page: 120, na: true,
+        value: 'AWB (우선 설정 없음)', why: '2012년 기종이라 AWB가 하나뿐. 텅스텐 조명 아래 노란 느낌은 WB → 텅스텐 프리셋으로 조절.' },
+      alo:          { path: 'MENU → 촬영 3탭 → Auto Lighting Optimizer', page: 125 },
+      highIsoNr:    { path: 'MENU → 촬영 4탭 → High ISO speed NR', page: 126 },
+      antiFlicker:  { path: '이 기종엔 안티플리커 기능 없음 (사양 p.372)', page: 372, na: true,
+        value: '없음', why: '실내 LED·형광등 아래에서 줄무늬·밝기 들쭉날쭉이 생기면 셔터를 1/100 이하로.' },
+      customMode:   { path: 'MENU → 설정(공구) 4탭 → Custom shooting mode (C1, C2) → Register settings', page: 328 },
+      lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
+    },
+    pages: { afMode: 92, afArea: 94, drive: 98, avMode: 146, mMode: 148, ec: 151, iso: 106 },
+    manualUrl: 'https://gdlp01.c-wss.com/gds/7/0300009627/05/EOS_6D_Instruction_Manual_EN.pdf',
+    verified: true,
+  },
+  {
+    // 크롭 DSLR·1다이얼(메인 다이얼 + Av± 버튼, 퀵 컨트롤 다이얼 없음), C 모드 없음, 최소 셔터 메뉴 없음(Max for Auto만), 안티플리커 없음, AF 9점(존 AF 없음).
+    // 매뉴얼: Advanced User Guide PDF(495쪽) 쪽수 = 인쇄 쪽수. 메뉴 탭 번호는 가이드 텍스트가 아이콘으로만 표시해 미확인 → '촬영 탭'으로 표기.
+    id: 'eos250d', name: 'EOS 200D II', short: '200D II', family: 'crop1dial', mount: 'EF', crop: 1.6,
+    isoMin: 100, isoMax: 25600, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 400,   // H 51200 미사용. Max for Auto 400–25600 (p.120)
+    shutterFastest: 1 / 4000, shutterLongest: 30,
+    hasCModes: false, cModes: [], ecDial: 'button',   // 노출보정 = Av± 버튼 누른 채 메인 다이얼 (p.160)
+    hasMinShutter: false, isoAutoMaxLabel: 'Max for Auto',   // Min. shutter spd. 메뉴 없음 → 움직이는 아이는 M + ISO AUTO (exposure.js r.mAuto, dials.js crop1dial)
+    burstLabel: '연속',       // 고속 연사 모드 없음. 연속 약 5.0컷/초 (위키·리뷰)
+    afModes: { still: 'One-Shot AF', kid: 'AI Servo AF' }, afAreaStill: '1점 (수동 선택)', afAreaKid: '자동 선택 (9점)', burstFps: 5,
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 탭 → Image quality', page: 115 },
+      isoAutoRange: { path: 'MENU → 촬영 탭 → ISO speed settings → Max for Auto', page: 120, value: 'Max for Auto → {isoUsable}', pathKo: 'ISO 감도 설정 → 자동 최대' },
+      minShutter:   { path: '이 기종엔 최소 셔터 속도 설정이 없음 (ISO speed settings에는 Max for Auto만 있음)', page: 120, na: true },
+      pictureStyle: { path: 'MENU → 촬영 탭 → Picture Style → 인물 → INFO 버튼', page: 124 },
+      wb:           { path: 'MENU → 촬영 탭 → White balance', page: 129 },
+      awbPriority:  { path: 'MENU → 촬영 탭 → White balance → AWB 선택 후 INFO 버튼 → Ambience priority', page: 130 },
+      alo:          { path: 'MENU → 촬영 탭 → Auto Lighting Optimizer', page: 136 },
+      highIsoNr:    { path: 'MENU → 촬영 탭 → High ISO speed NR', page: 138 },
+      antiFlicker:  { path: '이 기종엔 안티플리커 기능 없음 (가이드 기능 목록 p.13에 없음)', page: 13, na: true,
+        value: '없음', why: '실내 LED·형광등 아래에서 줄무늬·밝기 들쭉날쭉이 생기면 셔터를 1/100 이하로.' },
+      customMode:   { path: '이 기종엔 C 모드 없음 (모드 다이얼 p.30)', page: 30, na: true },
+      lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
+    },
+    pages: { afMode: 104, afArea: 108, drive: 112, avMode: 152, mMode: 155, ec: 160, iso: 118 },
+    manualUrl: 'https://gdlp01.c-wss.com/gds/4/0300034864/02/EOS_250D_Advanced_User_Guide_EN.pdf',
+    verified: true,
+  },
+  {
+    // 크롭 DSLR·2다이얼(메인 + 뒷면 퀵 컨트롤 다이얼), C 모드 없음, 최소 셔터 메뉴 없음(Max for Auto만). 온라인 가이드 C002(영문). 사양 UG-11_Reference_0100.
+    id: 'eos850d', name: 'EOS 850D', short: '850D', family: 'crop2dial', mount: 'EF', crop: 1.6,
+    isoMin: 100, isoMax: 25600, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 400,   // H 51200 미사용. Max for Auto 400–25600 (UG-06_Shooting-1_0110)
+    shutterFastest: 1 / 4000, shutterLongest: 30,
+    hasCModes: false, cModes: [], ecDial: 'quick',   // 노출보정 = 퀵 컨트롤 다이얼 (UG-04_AF-Drive_0110)
+    hasMinShutter: false, isoAutoMaxLabel: 'Max for Auto',   // Min. shutter spd. 메뉴 없음 → 움직이는 아이는 M + ISO AUTO (exposure.js r.mAuto, dials.js crop2dial)
+    afModes: { still: 'One-Shot AF', kid: 'AI Servo AF' }, afAreaStill: '1점 AF', afAreaKid: '존 AF', burstFps: 7,   // 고속 연사 약 7.0컷/초 (UG-04_AF-Drive_0060)
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0050.html' },
+      isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Max for Auto', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0110.html', value: 'Max for Auto → {isoUsable}', pathKo: 'ISO 감도 설정 → 자동 최대' },
+      minShutter:   { path: '이 기종엔 최소 셔터 속도 설정이 없음 (ISO speed settings에는 ISO speed·Max for Auto만 있음)', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0110.html', na: true },
+      pictureStyle: { path: 'MENU → 촬영 3탭 → Picture Style → 인물 → INFO 버튼', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0190.html' },
+      wb:           { path: 'MENU → 촬영 3탭 → White balance', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0150.html' },
+      awbPriority:  { path: 'MENU → 촬영 3탭 → White balance → AWB 선택 후 INFO 버튼 → Ambience priority', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0150.html' },
+      alo:          { path: 'MENU → 촬영 2탭 → Auto Lighting Optimizer', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0120.html' },
+      highIsoNr:    { path: 'MENU → 촬영 4탭 → High ISO speed NR', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0210.html' },
+      antiFlicker:  { path: 'MENU → 촬영 4탭 → Anti-flicker shoot.', page: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0230.html' },
+      customMode:   { path: '이 기종엔 C 모드 없음 (설정 탭에 Custom shooting mode 항목 없음)', page: 'https://cam.start.canon/en/C002/manual/html/UG-09_Set-up_0020.html', na: true },
+      lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
+    },
+    pages: { afMode: 'https://cam.start.canon/en/C002/manual/html/UG-04_AF-Drive_0020.html', afArea: 'https://cam.start.canon/en/C002/manual/html/UG-04_AF-Drive_0030.html', drive: 'https://cam.start.canon/en/C002/manual/html/UG-04_AF-Drive_0060.html',
+      avMode: 'https://cam.start.canon/en/C002/manual/html/UG-03_CustomShooting_0040.html', mMode: 'https://cam.start.canon/en/C002/manual/html/UG-03_CustomShooting_0050.html', ec: 'https://cam.start.canon/en/C002/manual/html/UG-04_AF-Drive_0110.html', iso: 'https://cam.start.canon/en/C002/manual/html/UG-06_Shooting-1_0110.html' },
+    manualUrl: 'https://cam.start.canon/en/C002/manual/',
+    specUrl: 'https://cam.start.canon/en/C002/manual/html/UG-11_Reference_0100.html',
+    verified: true,
+  },
 ];
 
 // 1/3스톱 표준값
@@ -447,7 +554,10 @@ const SETUP_CMODE_STEPS = [
   { title: '최소 셔터 1/125', value: 'Min. shutter spd. → Manual → 1/125', menuKey: 'minShutter', pathKo: 'ISO 감도 설정 → 최저 셔터 속도',
     note: 'ISO 상한에 걸리면 카메라가 이보다 느린 셔터를 쓰기도 함 (매뉴얼 명시). 그때는 ISO 상한을 올려야 함.' },
   { title: '{c1}에 등록', value: 'Register settings → {c1} → OK', menuKey: 'customMode', pathKo: '커스텀 촬영 모드 → 설정 등록' },
-  { title: '아이용으로 바꾸기', value: 'AF 버튼 → {afKid} / AF 영역 선택 버튼 → {afAreaKid} / DRIVE 버튼 → 고속 연사 ({burst}컷/초) / Min. shutter spd. → 1/500', path: '②~⑤와 같은 버튼·메뉴', pageKeys: ['afMode', 'afArea', 'drive'], menuKeys: ['minShutter'],
+  { title: '아이용으로 바꾸기',
+    eos6d: { value: 'AF 버튼 → {afKid} / AF 포인트 선택 버튼 → {afAreaKid} / DRIVE 버튼 → 연속 ({burst}컷/초) / Min. shutter spd. → 1/250 (이 기종 상한)',
+      note: '6D의 Min. shutter spd.는 1/250까지만 설정됨(p.111). 아이가 흔들리면 C2 대신 M + ISO AUTO로 1/500을 직접 잡는다(결과 화면 현장 조정에 표시).' },
+    value: 'AF 버튼 → {afKid} / AF 영역 선택 버튼 → {afAreaKid} / DRIVE 버튼 → 고속 연사 ({burst}컷/초) / Min. shutter spd. → 1/500', path: '②~⑤와 같은 버튼·메뉴', pageKeys: ['afMode', 'afArea', 'drive'], menuKeys: ['minShutter'],
     rf: { value: 'AF operation → {afKid} / AF area → {afAreaKid} / Drive → High-speed continuous + ({shutterBase} 약 {burst}컷/초) / Min. shutter spd. → 1/500', pageKeys: [], menuKeys: ['afOperation', 'afArea', 'driveMode', 'minShutter'] } },
   { title: '{c2}에 등록', value: 'Register settings → {c2} → OK', menuKey: 'customMode', pathKo: '커스텀 촬영 모드 → 설정 등록' },
   { title: 'Auto update set.는 Disable 유지', value: 'Disable (기본값)', menuKey: 'customMode', pathSuffix: ' → Auto update set.', pathKo: '커스텀 촬영 모드 → 자동 업데이트 설정',
