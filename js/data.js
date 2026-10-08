@@ -165,6 +165,30 @@ const CAMERAS = [
     specUrl: 'https://cam.start.canon/en/C013/manual/html/UG-10_Reference_0100.html',
     verified: true,
   },
+  {
+    // 크롭(APS-C 1.6) DSLR·2다이얼(메인 + 퀵 컨트롤), C1·C2 있음. 첫 crop2dial 바디. 매뉴얼: Advanced User Guide PDF(영문), 쪽수는 PDF 페이지 = 인쇄 페이지.
+    id: 'eos90d', name: 'EOS 90D', short: '90D', family: 'crop2dial', mount: 'EF', crop: 1.6,
+    isoMin: 100, isoMax: 25600, isoUsable: 6400, isoHard: 12800, isoAutoMaxMin: 200,   // H 51200(ISO expansion)은 앱에서 쓰지 않음. Auto range 최대의 하한 200은 6D2·5D4와 같은 UI로 추정(facts.md 참고)
+    shutterFastest: 1 / 8000, shutterLongest: 30,   // 기계식. 라이브뷰 전자셔터 1/16000은 앱에서 쓰지 않음
+    hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',
+    afModes: { still: 'One-Shot', kid: 'AI Servo' }, afAreaStill: '1점 AF', afAreaKid: '존 AF', burstFps: 10,   // 뷰파인더 고속 연사 약 10컷/초 (p.150)
+    menu: {
+      imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 199 },
+      isoAutoRange: { path: 'MENU → 촬영 2탭 → ISO speed settings → Auto range', page: 216 },
+      minShutter:   { path: 'MENU → 촬영 2탭 → ISO speed settings → Min. shutter spd.', page: 217 },
+      pictureStyle: { path: 'MENU → 촬영 3탭 → Picture Style → 인물 → INFO 버튼', page: 233 },
+      wb:           { path: 'MENU → 촬영 3탭 → White balance', page: 222 },
+      awbPriority:  { path: 'MENU → 촬영 3탭 → White balance → AWB 선택 후 INFO 버튼 → Ambience priority', page: 224 },
+      alo:          { path: 'MENU → 촬영 2탭 → Auto Lighting Optimizer', page: 218 },
+      highIsoNr:    { path: 'MENU → 촬영 4탭 → High ISO speed NR', page: 239 },
+      antiFlicker:  { path: 'MENU → 촬영 5탭 → Anti-flicker shoot.', page: 261 },
+      customMode:   { path: 'MENU → 설정(공구) 5탭 → Custom shooting mode (C1, C2) → Register settings', page: 546 },
+      lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
+    },
+    pages: { afMode: 124, afArea: 131, drive: 150, avMode: 114, mMode: 117, ec: 160, iso: 213 },
+    manualUrl: 'https://gdlp01.c-wss.com/gds/3/0300036653/02/EOS_90D_Advanced_User_Guide_EN.pdf',
+    verified: true,
+  },
 ];
 
 // 1/3스톱 표준값

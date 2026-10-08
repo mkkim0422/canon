@@ -1,6 +1,6 @@
 // 다이얼 조작 문구. family(바디 내부 분류)별 템플릿. compute()는 문구를 만들지 않는다.
 // dialSteps(r) → 문자열 배열. r은 exposure.js compute() 결과.
-// 검증: ff2dial = 6D Mark II·5D Mark IV, rf = R6 Mark II, rf1dial = R50, rf2dial = R8. crop2dial은 ff2dial 문구 재사용(미검증), crop1dial은 틀만.
+// 검증: ff2dial = 6D Mark II·5D Mark IV, rf = R6 Mark II, rf1dial = R50, rf2dial = R8, crop2dial = 90D(ff2dial 문구 그대로 검증). crop1dial은 틀만.
 
 const DIALS = {
   // 풀프레임·2다이얼(메인 + 퀵 컨트롤), C 모드 있음. 검증: 6D Mark II(p.238/241/245/170), 5D Mark IV(p.248/251/255/177).
@@ -28,7 +28,8 @@ const DIALS = {
     },
   },
 
-  // 크롭·2다이얼, C 모드 있음. 예: 90D, 80D. 문구는 ff2dial과 동일 (2차에서 기종별 검증)
+  // 크롭·2다이얼(메인 + 퀵 컨트롤), C 모드 있음. 검증: 90D PDF — Av 메인 다이얼 조리개(p.114), 노출보정 퀵 컨트롤 다이얼(p.160), M 메인=셔터·퀵=조리개(p.117),
+  //  ISO 버튼 → 메인 또는 퀵 다이얼(p.213), LOCK 스위치(<R>) 위로 올리면 기본으로 퀵 컨트롤 다이얼이 잠김 → 아래로 내려 해제(p.60). 문구가 ff2dial과 완전히 같아 재사용. 80D는 미검증.
   crop2dial: {
     av(r) { return DIALS.ff2dial.av(r); },
     m(r) { return DIALS.ff2dial.m(r); },

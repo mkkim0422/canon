@@ -10,7 +10,7 @@
 - 마운트: EF 바디 + RF 렌즈는 조합 불가(목록에서 숨김). RF 바디 + EF 렌즈는 `r.adapter = true`로 "어댑터 필요" 표시. 크롭 바디는 환산 초점거리(portraitFocal × crop)로 핸드헬드 한계를 계산하고 "환산 80mm"를 표시.
 - 바디별 값은 compute()가 camera에서 읽는다: shutterFastest(자동 조임 기준), isoUsable(ISO 자동 상한), isoHard(비상 상한), isoMin/isoMax, crop, afModes/afArea 명칭, burstFps, cModes.
 - **야외 맑음의 밝은 단렌즈 조리개는 데이터에 f/2.2로 두고 compute()가 바디 최고 셔터에 맞춰 자동으로 조인다**(`r.autoStopped`, apNotes에 사유). 1/4000 바디(6D2) f/3.2, 1/8000 바디(5D4) f/2.2 유지. check.js가 이 차이를 검사한다. 데이터에 바디별 조리개를 따로 적지 않는다.
-- 검증된 바디: EOS 6D Mark II(2026-10-07), EOS 5D Mark IV(2026-10-07, ff2dial 템플릿을 두 바디로 검증), EOS R6 Mark II(2026-10-07, rf 템플릿 검증), EOS R50(2026-10-08, rf1dial 템플릿 검증, 온라인 가이드 C011), EOS R8(2026-10-08, rf2dial 템플릿 검증, 온라인 가이드 C013). 다음 순서: 90D → 850D → 6D → 80D → 200D II (DSLR은 PDF 매뉴얼 쪽수). 다음 바디부터는 family가 다르면 dials.js 템플릿을 그 바디 매뉴얼로 채운다.
+- 검증된 바디: EOS 6D Mark II(2026-10-07), EOS 5D Mark IV(2026-10-07, ff2dial 템플릿을 두 바디로 검증), EOS R6 Mark II(2026-10-07, rf 템플릿 검증), EOS R50(2026-10-08, rf1dial 템플릿 검증, 온라인 가이드 C011), EOS R8(2026-10-08, rf2dial 템플릿 검증, 온라인 가이드 C013), EOS 90D(2026-10-08, crop2dial 템플릿 검증 = ff2dial 문구 그대로, PDF 매뉴얼 쪽수). 다음 순서: 850D → 6D → 80D → 200D II (DSLR은 PDF 매뉴얼 쪽수). 다음 바디부터는 family가 다르면 dials.js 템플릿을 그 바디 매뉴얼로 채운다.
 - **미러리스(온라인 가이드) 바디는 `page`에 PDF 쪽수 대신 가이드 페이지 URL 문자열을 넣는다.** app.js가 문자열이면 "온라인 가이드" 링크로, 숫자면 "p.N"으로 표시. facts.md json의 menuPages에도 그 URL을 넣는다.
 - 미러리스 전용 메뉴 키(`subjectDetect`, `shutterMode`, `afOperation`, `afArea`, `driveMode`)는 선택 항목. SETUP_COMMON의 `onlyIf: '<키>'` 항목은 그 키가 있는 바디에서만 보이고, SETUP_CMODE_STEPS의 `rf: {...}`는 rf family에서 기본 문구를 덮어쓴다. 아이용 세트는 Servo AF + Whole area AF + Subject to detect People + Eye detection + 고속 연사(기계식).
 - 렌즈 목록 순서: 바디와 같은 마운트가 먼저, 어댑터 렌즈(RF 바디의 EF)는 뒤에 "어댑터" 표시.
