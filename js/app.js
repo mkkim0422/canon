@@ -4,7 +4,7 @@
 // 사진 분석은 exif.js/analyze.js, 매핑은 match.js(docs/match.md).
 const APP_NAME = '카메라 치트키';
 const $ = (id) => document.getElementById(id);
-const K = { camera: 'cck.camera', lens: 'cck.lens', lenses: 'cck.lenses', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey', checklist: 'cck.checklistHide', focus: 'cck.focus' };
+const K = { camera: 'cck.camera', lens: 'cck.lens', lenses: 'cck.lenses', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey', checklist: 'cck.checklistHide', focus: 'cck.focus', setupSteps: 'cck.setupSteps' };
 const REF_KEY = 'cck.ref'; // sessionStorage. 분석 결과(features·exif·축소본 dataURL·summary·선택). 원본 사진은 어디에도 저장하지 않는다.
 
 const store = {
@@ -93,7 +93,7 @@ function header(title, back, opts = {}) {
   return `<header class="bar${back ? ' sub' : ''}">
     ${back ? `<a class="icon-btn press" href="${back}" aria-label="뒤로">${ic('back')}</a>` : ''}
     <h1>${title}</h1>
-    ${opts.lens && cam ? `<a class="pill press" href="#settings">${cam.short} · ${l.chip}</a>` : ''}
+    ${opts.lens && cam ? `<button type="button" class="pill press" id="lensChip" aria-expanded="false">${cam.short} · ${l.chip} ▾</button>` : ''}
     ${opts.noGear ? '' : `<a class="icon-btn press" href="#settings" aria-label="설정">${ic('settings')}</a>`}
   </header>${opts.subtitle ? `<p class="subtitle">${opts.subtitle}</p>` : ''}`;
 }
@@ -194,7 +194,7 @@ function bindLensChecks(view) {
 }
 
 // ---------- 홈 ----------
-function renderHome(view) {
+function renderHome(view, opts = {}) {
   const cam = camera();
   const tab = store.get(K.tab, 'scene');
   const recent = store.get(K.recent, null);
@@ -202,11 +202,14 @@ function renderHome(view) {
   if (recent && byId(SCENES, recent.scene) && byId(SUBJECTS, recent.subject)) {
     const s = byId(SCENES, recent.scene), u = byId(SUBJECTS, recent.subject);
     recentCard = `<a class="card press recent" href="#r.${s.id}.${u.id}"><span class="label-accent">최근</span><b>${s.label} · ${u.label}</b></a>`;
+  } else if (recent && recent.style && byId(STYLES, recent.style)) {
+    recentCard = `<a class="card press recent" href="#style.${recent.style}"><span class="label-accent">최근</span><b>${byId(STYLES, recent.style).title}</b></a>`;
   }
   const banner = setupDone() || !cam.hasCModes ? '' : `<a class="banner press" href="#settings"><b>아이용·사람용 세트를 카메라에 한 번 저장해 두세요</b><span>15분 · 설정 ›</span></a>`;
   const diagBack = diagLoad() ? `<a class="ref-note samples link" href="#diag.result">진단한 사진으로 돌아가기 ›</a>` : '';
   view.innerHTML = `
     ${header(APP_NAME, null, { lens: true })}
+    <div id="lensInline" class="lens-inline" ${opts.lensOpen ? '' : 'hidden'}>${lensRow(cam, lensId())}<a class="mini press" href="#settings">렌즈 추가·삭제는 설정에서</a></div>
     ${banner}
     ${recentCard}
     ${segment([{ id: 'scene', label: '상황으로' }, { id: 'style', label: '원하는 사진' }, { id: 'ref', label: '사진으로' }], tab, 'tab', 'three')}
@@ -230,6 +233,12 @@ function renderHome(view) {
   if (tab === 'ref') bindRefSamples(view);
   const cl = $('checklistHide');
   if (cl) cl.addEventListener('click', () => { store.set(K.checklist, new Date().toDateString()); renderHome(view); });
+  // 헤더 칩 → 홈에서 바로 렌즈 바꾸기 (현장에서 렌즈를 갈아 끼웠을 때)
+  const chip = $('lensChip'), inline = $('lensInline');
+  if (chip && inline) {
+    chip.addEventListener('click', () => { inline.hidden = !inline.hidden; chip.setAttribute('aria-expanded', String(!inline.hidden)); });
+    inline.querySelectorAll('.lens-row button').forEach((btn) => btn.addEventListener('click', () => { store.set(K.lens, btn.dataset.lens); renderHome(view, { lensOpen: true }); }));
+  }
 }
 
 // 나가기 전 체크 카드: 하루에 한 번 닫을 수 있음. IS 스위치 줄은 IS 렌즈를 가진 사람에게만.
@@ -647,6 +656,7 @@ function renderResult(view, req, opts = {}) {
     r = compute(cam.id, style.scene, style.subject, lens, style.override);
     back = '#home';
     store.set(K.tab, 'style');
+    store.set(K.recent, { style: req.id });
   } else {
     r = compute(cam.id, req.scene, req.subject, lens);
     back = `#scene.${req.scene}`;
@@ -817,7 +827,10 @@ function linkNames(text, subjectId) {
 // ③ 현장 조정 (플래그 규칙 + 상황 규칙). 같은 조치가 두 번 나오면 하나만.
 function renderRulesCard(r) {
   const seen = new Set();
-  const rules = [...flagRules(r), ...r.adjust].map(([c, a]) => [c, linkNames(fillSteps(a, r), r.subject.id)]).filter(([c, a]) => { const k = a.replace(/<[^>]+>/g, ''); if (seen.has(k)) return false; seen.add(k); return true; });
+  const capped = r.flags.some((f) => f.type === 'minShutterCapped');
+  const rules = [...flagRules(r), ...r.adjust]
+    .filter(([c, a]) => !(capped && /\{minShutterSet\}/.test(a)))   // 최소 셔터 상한 바디(6D)는 flagRules의 Tv 안내 하나만
+    .map(([c, a]) => [c, linkNames(fillSteps(a, r), r.subject.id)]).filter(([c, a]) => { const k = a.replace(/<[^>]+>/g, ''); if (seen.has(k)) return false; seen.add(k); return true; });
   return `
     <section class="card">
       <h2>현장 조정 <span class="muted small">찍어 보고 이상하면</span></h2>
@@ -840,18 +853,33 @@ function renderSettings(view) {
     return `<small>${nums.length ? `(매뉴얼 p.${nums.join('·')})` : ''}${urls.map((u, i) => ` <a href="${esc(u)}" target="_blank" rel="noopener">온라인 가이드${urls.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('')}</small>`;
   };
   const koTxt = (ko) => ko ? ` <span class="ko">(${ko} 추정)</span>` : '';
-  const card = (i, title, value, path, pages, ko, why, note) => `<section class="card setup">
-    <h3><span class="n">${i}</span>${title}</h3>
+  // 단계별 '했음' 체크. 바디별로 저장(cck.setupSteps[cameraId]). 전부 체크하면 자동으로 등록 완료.
+  const stepsAll = store.get(K.setupSteps, {}) || {};
+  const done = stepsAll[cam.id] || {};
+  const stepKeys = [];
+  const card = (i, title, value, path, pages, ko, why, note, key) => {
+    if (key) stepKeys.push(key);
+    return `<section class="card setup ${key && done[key] ? 'is-done' : ''}">
+    <h3><span class="n">${i}</span>${title}${key ? `<label class="done"><input type="checkbox" data-step="${key}" ${done[key] ? 'checked' : ''}>했음</label>` : ''}</h3>
     <div class="val">${value}</div>
     <div class="path">${path}${koTxt(ko)} ${pageTxt(pages)}</div>
     ${why || note ? `<div class="whyline">${why || ''}${note ? ` <small>${note}</small>` : ''}</div>` : ''}
   </section>`;
+  };
 
   const common = SETUP_COMMON.filter((s) => (!s.onlyMount || s.onlyMount === cam.mount) && (!s.onlyIf || cam.menu[s.onlyIf])).map((s, i) => {
     const m = cam.menu[s.key] || {};
     // camera.menu[key]의 title/value/why/pathKo가 있으면 공통 문구를 그 바디에서만 덮어씀 (예: R50 셔터 모드 = 전자 선막, Max for Auto)
-    return card(i + 1, fillCam(m.title || s.title, cam), fillCam(m.value || s.value, cam), m.path || '', m.page ? [m.page] : [], m.pathKo || s.pathKo, fillCam(m.why || s.why || '', cam), s.note);
+    return card(i + 1, fillCam(m.title || s.title, cam), fillCam(m.value || s.value, cam), m.path || '', m.page ? [m.page] : [], m.pathKo || s.pathKo, fillCam(m.why || s.why || '', cam), s.note, 'c' + s.key);
   }).join('');
+  // 메뉴 경로가 필요 없는 1회 준비 (매뉴얼 쪽수 없음)
+  const once = [
+    cam.mount === 'EF' ? ['뷰파인더 시도 조절', '뷰파인더 옆 작은 다이얼을 돌려 측거점·숫자가 또렷해질 때까지', '뷰파인더가 흐리면 모든 사진이 흐려 보여 초점을 의심하게 됨. 한 번만.'] : null,
+    ['재생 하이라이트 경고 켜기', 'MENU → 재생 탭 → Highlight alert → Enable', '찍고 나서 하얗게 날아간 부분이 깜빡여 보임. 노출보정 −0.3 판단이 쉬워짐.'],
+    ['메모리 카드', 'UHS-I U3 / V30 이상', '느린 카드는 연사 중 멈춤. 아이 사진은 연사가 생명.'],
+    ownedLensIds(cam).some((id) => (byId(LENSES, id) || {}).is) ? ['렌즈 스위치', 'AF · STABILIZER ON', '아이 손이 스위치를 MF·OFF로 밀어 두는 일이 가장 흔한 "고장".'] : null,
+  ].filter(Boolean);
+  const onceCards = once.map(([t, v, w], i) => card(i + 1, t, v, '', [], null, w, null, 'o' + i)).join('').replace(/<em class="warn">메뉴 위치 미확인<\/em>/g, '');
 
   let cmodes;
   if (cam.hasCModes) {
@@ -865,16 +893,19 @@ function renderSettings(view) {
         if (s.pageKey && cam.pages[s.pageKey]) pages.push(cam.pages[s.pageKey]);
         (s.pageKeys || []).forEach((k) => cam.pages[k] && pages.push(cam.pages[k]));
         (s.menuKeys || []).forEach((k) => cam.menu[k] && cam.menu[k].page && pages.push(cam.menu[k].page));
-        return card(i + 1, fillCam(s.title, cam), fillCam(s.value, cam), path, pages, s.pathKo, s.why, s.note);
+        return card(i + 1, fillCam(s.title, cam), fillCam(s.value, cam), path, pages, s.pathKo, s.why, s.note, 'm' + i);
       }).join('')}</div>`;
   } else {
     cmodes = `<h2 class="sec">2. 피사체 세트</h2>
       <section class="card"><p>이 기종은 C 모드가 없어서 피사체를 바꿀 때 AF 동작·AF 영역·드라이브를 직접 바꿔야 해요. 결과 화면 다이얼 순서에 그 단계가 들어갑니다.${cam.hasMinShutter === false ? ' 최소 셔터 속도 메뉴도 없어서 움직이는 아이는 M 모드 + ISO AUTO로 셔터 1/500을 직접 고정합니다.' : ''}</p></section>`;
   }
 
+  const doneCount = stepKeys.filter((k) => done[k]).length;
   view.innerHTML = `
     ${header('설정', '#home', { noGear: true })}
-    <p class="lead">처음 한 번만 ${cam.hasCModes ? '15분' : '10분'}. 순서대로 하고 맨 아래 등록 완료를 누르세요.</p>
+    <p class="lead">처음 한 번만 ${cam.hasCModes ? '15분' : '10분'}. 한 항목 끝낼 때마다 '했음'을 누르세요. 전부 하면 등록 완료.</p>
+    <div class="progress" id="setupProgress"><span style="width:${stepKeys.length ? Math.round(doneCount / stepKeys.length * 100) : 0}%"></span></div>
+    <p class="ref-note" id="setupCount">${doneCount}/${stepKeys.length} 완료${setupDone() ? ' · 등록 완료 상태' : ''}</p>
     <h2 class="sec">내 카메라</h2>
     <a class="card press mycam" href="#camera.settings"><span class="txt"><b>${cam.name}</b><small>${cam.verified ? '' : '검증 전 · '}누르면 변경</small></span><span class="chev">›</span></a>
     <h2 class="sec">내 렌즈</h2>
@@ -883,6 +914,8 @@ function renderSettings(view) {
     <h2 class="sec">1. 공통 설정</h2>
     <div class="list">${common}</div>
     ${cmodes}
+    <h2 class="sec">${cam.hasCModes ? '3' : '3'}. 그 밖에 한 번만</h2>
+    <div class="list">${onceCards}</div>
     <p class="lead small">메뉴명은 영문 매뉴얼 기준이고 괄호 안 한글은 추정입니다. 카메라에서 확인 후 알려주면 확정합니다.</p>
     <button type="button" class="btn press" id="setupDone">${setupDone() ? '등록 완료됨 (등록 다시 하려면 누르기)' : '등록 완료'}</button>
     <details class="more adv"><summary>고급: 사진 분석 서버 (선택)</summary>
@@ -920,6 +953,16 @@ function renderSettings(view) {
     } finally { btn.disabled = !$('geminiKey').value.trim(); }
   });
   $('setupDone').addEventListener('click', () => { store.set(K.setup, !setupDone()); renderSettings(view); window.scrollTo(0, document.body.scrollHeight); });
+  view.querySelectorAll('input[data-step]').forEach((inp) => inp.addEventListener('change', () => {
+    const all = store.get(K.setupSteps, {}) || {}; const mine = all[cam.id] || {};
+    if (inp.checked) mine[inp.dataset.step] = true; else delete mine[inp.dataset.step];
+    all[cam.id] = mine; store.set(K.setupSteps, all);
+    inp.closest('.card').classList.toggle('is-done', inp.checked);
+    const n = stepKeys.filter((k) => mine[k]).length;
+    $('setupProgress').firstElementChild.style.width = `${Math.round(n / stepKeys.length * 100)}%`;
+    if (n === stepKeys.length && !setupDone()) { store.set(K.setup, true); renderSettings(view); return; }
+    $('setupCount').textContent = `${n}/${stepKeys.length} 완료${setupDone() ? ' · 등록 완료 상태' : ''}`;
+  }));
 }
 
 window.addEventListener('hashchange', route);

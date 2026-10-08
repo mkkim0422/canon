@@ -292,6 +292,17 @@ main.focus .dialc .more { display: none; }
 .grid + .card, .grid + .lens-row { margin-top: 12px; }
 .card h2 .muted.small { font-size: 13px; font-weight: 400; margin-left: 6px; }
 .rule .a a.info { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+/* 설정 진행률·했음 체크, 홈 렌즈 인라인 */
+.progress { height: 6px; border-radius: 3px; background: var(--seg); overflow: hidden; margin: -4px 0 6px; }
+.progress span { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.setup h3 .done { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--sub); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.setup h3 .done input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+.setup.is-done { opacity: .55; }
+.setup.is-done h3 .done { color: var(--accent); font-weight: 600; }
+.lens-inline { margin: -12px 0 16px; }
+.lens-inline .lens-row { margin-bottom: 4px; }
+.lens-inline .mini { margin-top: 4px; }
+#lensChip { border: 0; font: inherit; letter-spacing: inherit; cursor: pointer; }
 /* 로딩 스켈레톤 */
 .skel { display: grid; gap: 10px; margin-top: 12px; }
 .skel span { display: block; height: 14px; border-radius: 7px; background: var(--seg); }
