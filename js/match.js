@@ -43,7 +43,10 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   const req = {};
   if (f.dof === 'shallow') req.maxAp = 2.2;
   if (f.focalFeel === 'tele') req.minFocal = 85;
-  const meets = (l) => (req.maxAp == null || l.apMin <= req.maxAp) && (req.minFocal == null || Math.round(l.tele * camera.crop) >= req.minFocal);
+  // (i) 배경 흐림 지수 = 환산 최대 초점거리 ÷ 최대 개방. 20 이상이면 f/2.2 단렌즈만큼 흐려짐(105mm f/4 = 26) → 밝은 렌즈 요구를 줌 망원으로도 충족
+  const blurIdx = (l) => Math.round(l.tele * camera.crop) / l.apMin;
+  const apMeets = (l) => req.maxAp == null || l.apMin <= req.maxAp || blurIdx(l) >= BLUR_INDEX_MIN;
+  const meets = (l) => apMeets(l) && (req.minFocal == null || Math.round(l.tele * camera.crop) >= req.minFocal);
   const lensOk = meets(lens);
   let lensWarning = null;
   if (!lensOk) {
@@ -52,12 +55,13 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
     const okLenses = (ownedLensIds || []).map((id) => byId(LENSES, id)).filter((l) => l && lensCompatible(camera, l) && meets(l)).map((l) => l.id);
     lensWarning = { need: okLenses.length ? need : `${need} (내 렌즈 중엔 없음)`, okLenses };
   }
-  const apOk = req.maxAp == null || lens.apMin <= req.maxAp;
+  const apOk = apMeets(lens);
+  const apByZoom = apOk && req.maxAp != null && lens.apMin > req.maxAp;   // 줌 망원단으로 흐림을 얻는 경우
   const focalOk = req.minFocal == null || Math.round(lens.tele * camera.crop) >= req.minFocal;
 
   // (a)(e) sameSceneId 우선순위: ① rimLight·backlit → 'backlit'(confidence 무관) ② studio·unknown → null ③ confidence < 0.5 → null ④ 표 (a)
   let sameSceneId;
-  if (f.rimLight || f.light === 'backlit') sameSceneId = 'backlit';
+  if ((f.rimLight && !f.artificialLight) || f.light === 'backlit') sameSceneId = 'backlit';
   else if (f.light === 'studio' || f.light === 'unknown') sameSceneId = null;
   else if (f.lightConfidence < 0.5) sameSceneId = null;
   else sameSceneId = MATCH.lightToScene[f.light] || null;
@@ -68,7 +72,7 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   if (f.artificialLight || f.light === 'studio') impossible.push(Object.assign({}, MATCH.artificial));
 
   // (e) 역광: 현재 backlit → possible, indoorWindow → 창 테두리 빛 possible, 그 외 → impossible
-  if (f.rimLight || f.light === 'backlit') {
+  if ((f.rimLight && !f.artificialLight) || f.light === 'backlit') {   // 조명 장비 테두리 빛은 (g)가 처리
     if (scene.id === 'backlit') possible.push({ what: '머리카락 테두리 빛 (해를 등지고)', how: `해를 등지게 세우고 노출보정 ${fmtEC(settings.ec)}` });
     else if (scene.id === 'indoorWindow') possible.push({ what: '창을 등진 테두리 빛', how: '창을 등지고 서서 노출보정 +0.7' });
     else impossible.push(Object.assign({}, MATCH.rim));
@@ -85,9 +89,11 @@ function matchFeatures(features, currentSceneId, currentSubjectId, cameraId, len
   }
 
   // (b) 심도
-  if (f.dof === 'shallow' && apOk) possible.push({ what: '배경 강하게 흐림', how: `f/${settings.aperture}, 피사체와 배경 3m 이상 떼기` });
+  const tooDark = settings.flags.some((x) => x.type === 'isoCapped' || x.type === 'tooDark');
+  if (f.dof === 'shallow' && apOk) possible.push({ what: '배경 강하게 흐림', how: apByZoom ? `${Math.round(lens.tele * camera.crop)}mm로 당기고 f/${settings.aperture}. 아이와 2m, 배경은 5m 이상` : `f/${settings.aperture}, 피사체와 배경 3m 이상 떼기` });
   if (f.dof === 'medium') possible.push({ what: '적당한 배경 분리', how: `f/${settings.aperture}, 눈에 초점` });
-  if (f.dof === 'deep') possible.push({ what: '앞뒤 모두 선명', how: `f/${settings.aperture}, 가운데 사람 얼굴에 초점` });
+  if (f.dof === 'deep' && !tooDark) possible.push({ what: '앞뒤 모두 선명', how: `f/${settings.aperture}, 가운데 사람 얼굴에 초점` });
+  if (f.dof === 'deep' && tooDark) impossible.push({ what: '앞뒤 모두 선명 (f/5.6)', why: '지금 밝기에선 f/5.6이 ISO 상한을 넘김', alt: '낮 창가·야외에서, 또는 조명 전부 켜고', linkSceneId: 'indoorWindow' });
 
   // (c) 화각
   let moveTip = null;

@@ -4,7 +4,7 @@
 // 사진 분석은 exif.js/analyze.js, 매핑은 match.js(docs/match.md).
 const APP_NAME = '카메라 치트키';
 const $ = (id) => document.getElementById(id);
-const K = { camera: 'cck.camera', lens: 'cck.lens', lenses: 'cck.lenses', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey' };
+const K = { camera: 'cck.camera', lens: 'cck.lens', lenses: 'cck.lenses', recent: 'cck.recent', tab: 'cck.tab', setup: 'cck.setupDone', refMode: 'cck.refMode', geminiKey: 'cck.geminiKey', checklist: 'cck.checklistHide', focus: 'cck.focus' };
 const REF_KEY = 'cck.ref'; // sessionStorage. 분석 결과(features·exif·축소본 dataURL·summary·선택). 원본 사진은 어디에도 저장하지 않는다.
 
 const store = {
@@ -84,6 +84,7 @@ function route() {
   if (page === 'ref') { store.set(K.tab, 'ref'); return renderRefHome(view); }
   if (page === 'diag' && a === 'result') return diagLoad() ? renderDiagResult(view) : (location.hash = 'diag');
   if (page === 'diag') { store.set(K.tab, 'ref'); return renderDiagHome(view); }
+  if (page === 'fix') { store.set(K.tab, 'ref'); return renderFix(view, a, b); }
   renderHome(view);
 }
 
@@ -115,6 +116,9 @@ function fillSteps(text, r) {
     .replace('{apStop}', (() => { const i = APERTURES.indexOf(r.aperture); const nx = APERTURES[Math.min(APERTURES.length - 1, i + 3)]; return `f/${Math.min(nx, r.lens.apMax)}`; })())
     .replace('{maxShutter}', fmtShutter(r.camera.shutterFastest))
     .replace(/\{isoHard\}/g, String(r.camera.isoHard))
+    .replace('{isoDial}', r.camera.isoDial || 'ISO 버튼 → 메인 다이얼 한 클릭씩 올리기')
+    // 최소 셔터를 올리는 조작: 메뉴가 없는 바디(850D·R50·200D II)는 M 셔터, 상한이 있는 바디(6D 1/250)는 Tv, 나머지는 Min. shutter spd.
+    .replace('{minShutterSet}', r.camera.hasMinShutter === false ? 'M 모드 셔터를' : (r.camera.minShutterCap ? 'Tv 모드로 셔터를' : 'Min. shutter spd. →'))
     .replace(/Auto range/g, r.camera.isoAutoMaxLabel || 'Auto range');   // ISO 자동 상한 메뉴명이 다른 바디(R50 = Max for Auto)
 }
 // 설정 문구의 바디 값 치환
@@ -134,11 +138,14 @@ function renderCameraSelect(view, fromSettings) {
   const cur = cameraId();
   view.innerHTML = `
     ${header(fromSettings ? '카메라 변경' : APP_NAME, fromSettings ? '#settings' : null, { noGear: true })}
-    <p class="lead">${fromSettings ? '바디를 바꾸면 설정 페이지가 바뀌어 등록 완료가 초기화됩니다.' : '어떤 카메라를 쓰시나요? 한 번만 고르면 됩니다.'}</p>
+    <p class="lead">${fromSettings ? '카메라를 바꾸면 설정 안내가 그 기종으로 바뀌고, 등록 완료 표시가 풀려요.' : '어떤 카메라를 쓰시나요? 한 번만 고르면 됩니다.'}</p>
     <div class="list">
       ${CAMERAS.map((c) => `<button type="button" class="card press choose ${c.id === cur ? 'on' : ''}" data-camera="${c.id}"><b>${c.name}</b>${c.verified ? '' : '<small>검증 전 (값이 틀릴 수 있음)</small>'}</button>`).join('')}
     </div>
-    <p class="lead small">다른 기종은 추가 예정입니다.</p>`;
+    <details class="more similar"><summary>목록에 없어요</summary>
+      <p class="lead small">버튼 배치가 비슷한 기종을 고르세요. 메뉴 쪽수는 다를 수 있어요.</p>
+      <div class="list">${SIMILAR.map((s) => `<button type="button" class="card press choose" data-camera="${s.to}"><b>${s.from}</b><small>→ ${byId(CAMERAS, s.to).name}로 (${s.why})</small></button>`).join('')}</div>
+    </details>`;
   view.querySelectorAll('[data-camera]').forEach((b) => b.addEventListener('click', () => {
     const next = b.dataset.camera;
     if (next !== cur) { store.set(K.camera, next); store.del(K.setup); store.del(K.recent); }
@@ -147,6 +154,16 @@ function renderCameraSelect(view, fromSettings) {
     location.hash = fromSettings ? 'settings' : 'lenses';
   }));
 }
+
+// 목록에 없는 기종 → 버튼 배치가 비슷한 바디로 안내 (정확도는 그 바디 기준. 메뉴 쪽수는 다를 수 있음)
+const SIMILAR = [
+  { from: 'EOS 70D · 77D', to: 'eos80d', why: '2다이얼 크롭, C 모드' },
+  { from: 'EOS 800D · 750D · 760D', to: 'eos850d', why: '크롭, C 모드 없음' },
+  { from: 'EOS 100D · 200D · 4000D · 2000D', to: 'eos250d', why: '1다이얼, Av± 버튼' },
+  { from: 'EOS R10 · R100 · R7', to: 'eosr50', why: 'RF 크롭 미러리스' },
+  { from: 'EOS RP · R', to: 'eosr8', why: 'RF 풀프레임 2다이얼' },
+  { from: 'EOS 5D Mark III · 6D', to: 'eos6d', why: '풀프레임 DSLR' },
+];
 
 // ---------- 렌즈 체크 (첫 실행) ----------
 function renderLensCheck(view) {
@@ -186,27 +203,87 @@ function renderHome(view) {
     const s = byId(SCENES, recent.scene), u = byId(SUBJECTS, recent.subject);
     recentCard = `<a class="card press recent" href="#r.${s.id}.${u.id}"><span class="label-accent">최근</span><b>${s.label} · ${u.label}</b></a>`;
   }
-  const banner = setupDone() || !cam.hasCModes ? '' : `<a class="banner press" href="#settings"><b>${cam.cModes.join('·')} 등록이 먼저예요</b><span>설정하러 가기 ›</span></a>`;
+  const banner = setupDone() || !cam.hasCModes ? '' : `<a class="banner press" href="#settings"><b>아이용·사람용 세트를 카메라에 한 번 저장해 두세요</b><span>15분 · 설정 ›</span></a>`;
+  const diagBack = diagLoad() ? `<a class="ref-note samples link" href="#diag.result">진단한 사진으로 돌아가기 ›</a>` : '';
   view.innerHTML = `
     ${header(APP_NAME, null, { lens: true })}
     ${banner}
     ${recentCard}
     ${segment([{ id: 'scene', label: '상황으로' }, { id: 'style', label: '원하는 사진' }, { id: 'ref', label: '사진으로' }], tab, 'tab', 'three')}
     ${tab === 'scene' ? `
+      ${checklistCard(cam)}
+      ${timeHint()}
       <div class="grid">
         ${SCENES.map((s) => `<a class="card press scene" href="#scene.${s.id}"><b>${s.label}</b><small>${s.sub}</small></a>`).join('')}
-      </div>` : tab === 'style' ? `
+      </div>${diagBack}` : tab === 'style' ? `
       <div class="list">
         ${STYLES.map((s) => `<a class="card press style" href="#style.${s.id}">
           <span class="slot">${slotImg(s.image)}</span>
           <span class="txt"><b>${s.title}</b><small>${s.desc}</small></span>
         </a>`).join('')}
       </div>` : `
-      <a class="card press big" href="#ref"><span class="txt"><b>이 사진처럼 찍기</b><small>찍고 싶은 사진을 올리면 내 장비로 어떻게 찍을지</small></span><span class="chev">›</span></a>
+      <a class="card press big" href="#fix"><span class="txt"><b>방금 찍은 게 이상해요</b><small>어둡다 · 흔들렸다 · 색이 이상하다 → 지금 상황에서 바로 고칠 것</small></span><span class="chev">›</span></a>
+      <a class="card press big" href="#ref"><span class="txt"><b>이 사진처럼 찍기</b><small>${refMode() === 'gemini' ? '찍고 싶은 사진을 올리면 내 장비로 어떻게 찍을지' : '예시 사진에서 원하는 느낌을 고르면 내 장비로 어떻게 찍을지'}</small></span><span class="chev">›</span></a>
       ${refSamplesRow()}
       <a class="card press big" href="#diag"><span class="txt"><b>내 사진 진단</b><small>내가 찍은 사진이 왜 아쉬운지, 다음엔 어떻게</small></span><span class="chev">›</span></a>`}`;
   view.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => { store.set(K.tab, b.dataset.tab); renderHome(view); }));
   if (tab === 'ref') bindRefSamples(view);
+  const cl = $('checklistHide');
+  if (cl) cl.addEventListener('click', () => { store.set(K.checklist, new Date().toDateString()); renderHome(view); });
+}
+
+// 나가기 전 체크 카드: 하루에 한 번 닫을 수 있음. IS 스위치 줄은 IS 렌즈를 가진 사람에게만.
+function checklistCard(cam) {
+  if (store.get(K.checklist, '') === new Date().toDateString()) return '';
+  const hasIs = ownedLensIds(cam).some((id) => (byId(LENSES, id) || {}).is);
+  const items = ['배터리 · 메모리 카드', '렌즈 스위치 AF', hasIs ? '렌즈 STABILIZER(IS) ON' : null, cam.hasCModes ? `모드 다이얼 ${cam.cModes[0]}` : '모드 다이얼 Av', '노출보정 0 확인', '렌즈 캡'].filter(Boolean);
+  return `<section class="card check">
+    <p class="ref-note">나가기 전 체크</p>
+    <p class="items">${items.join(' · ')}</p>
+    <button type="button" class="mini press" id="checklistHide">오늘은 그만 보기</button>
+  </section>`;
+}
+// 시간대 추천 한 줄: 위치 권한 없이 시각만으로. 07~16 야외 맑음·그늘, 16~19 역광, 그 외 실내 저녁·야경
+function timeHint() {
+  const h = new Date().getHours();
+  const picks = h >= 7 && h < 16 ? [['outdoorSunny', '지금 해가 높아요'], ['outdoorShade', '']]
+    : h >= 16 && h < 19 ? [['backlit', '해가 낮아요, 역광 찬스']]
+    : [['indoorEvening', '실내라면'], ['nightPortrait', '밖이라면']];
+  return `<div class="hints">${picks.map(([id, t]) => `<a class="pill press chip" href="#scene.${id}">${t ? t + ' · ' : ''}${byId(SCENES, id).label} ›</a>`).join('')}</div>`;
+}
+
+// ---------- 방금 찍은 게 이상해요 (#fix[.scene[.problem]]): 업로드 없이 현재 상황의 현장 조정만 큰 글씨로 ----------
+const FIX_PROBLEMS = [
+  { id: 'dark', label: '어둡다', re: /어두|밝기|노출/ },
+  { id: 'blur', label: '흔들렸다 · 뭉개졌다', re: /흔들|멈춘|셔터|초점/ },
+  { id: 'color', label: '색이 이상하다', re: /주황|푸르|노란|WB|색|따뜻/ },
+  { id: 'bright', label: '하얗게 날아갔다', re: /하얗|날아|밝으면|번지/ },
+];
+function renderFix(view, sceneId, problemId) {
+  const cam = camera();
+  const recent = store.get(K.recent, null);
+  const scene = byId(SCENES, sceneId) || (recent && byId(SCENES, recent.scene)) || null;
+  const subject = (recent && byId(SUBJECTS, recent.subject)) ? recent.subject : 'still';
+  const problem = FIX_PROBLEMS.find((p) => p.id === problemId) || null;
+  let body = '';
+  if (scene && problem) {
+    const r = compute(cam.id, scene.id, subject, lensId());
+    const rules = [...flagRules(r), ...r.adjust].map(([c, a]) => [c, fillSteps(a, r)]).filter(([c, a]) => problem.re.test(c + ' ' + a));
+    const generic = { dark: ['', '노출보정 +0.7. 그래도 어두우면 ISO 상한을 올리거나 밝은 자리로'], blur: ['', `셔터가 ${fmtShutter(r.minShutter)}보다 느리면 ISO 상한 올리기. 아이는 멈추는 순간을 노리기`], color: ['', 'Q 버튼 → WB → 상황에 맞는 프리셋(그늘·흐림·텅스텐). 섞인 조명이면 AWB 화이트 우선'], bright: ['', '노출보정 −0.3~−0.7. 해를 등지면 역광 상황으로'] }[problem.id];
+    const list = rules.length ? rules : [generic];
+    body = `<section class="card"><h2>${scene.label} · ${problem.label}</h2>
+      <div class="rules big">${list.map(([c, a]) => `<div class="rule${c ? '' : ' full'}"><span class="c">${c}</span><span class="a">${a}</span></div>`).join('')}</div>
+      <a class="mini press" href="#r.${scene.id}.${subject}">이 상황 세팅 전체 보기 →</a></section>`;
+  }
+  view.innerHTML = `
+    ${header('방금 찍은 게 이상해요', '#home', { noGear: true })}
+    <p class="lead">${scene ? '지금 상황' : '지금 어디서 찍고 있나요?'}</p>
+    <div class="lens-row scroll" role="radiogroup" aria-label="상황">
+      ${SCENES.map((s) => `<a role="radio" aria-checked="${scene && s.id === scene.id}" class="lens-btn ${scene && s.id === scene.id ? 'on' : ''}" href="#fix.${s.id}${problem ? '.' + problem.id : ''}">${s.label}</a>`).join('')}
+    </div>
+    ${scene ? `<p class="lead">뭐가 이상한가요?</p>
+    <div class="grid">${FIX_PROBLEMS.map((p) => `<a class="card press scene ${problem && p.id === problem.id ? 'same' : ''}" href="#fix.${scene.id}.${p.id}"><b>${p.label}</b></a>`).join('')}</div>` : ''}
+    ${body}`;
 }
 
 // ---------- 이 사진처럼 찍기 (1단계: #ref 페이지 / 로딩 / 실패) ----------
@@ -227,20 +304,21 @@ function refSamplesRow() {
     </div>`;
 }
 function renderRefHome(view) {
-  const offline = navigator.onLine === false && refMode() === 'gemini';
+  const ai = refMode() === 'gemini';
+  const offline = navigator.onLine === false && ai;
   view.innerHTML = `
     ${header('이 사진처럼 찍기', '#home', { noGear: true })}
     <section class="card">
-      <p class="ref-lead">찍고 싶은 사진을 올리면 내 카메라·렌즈로 어떻게 찍을지 알려드려요</p>
-      <p class="ref-note">분석 후 사진은 저장되지 않아요</p>
+      <p class="ref-lead">${ai ? '찍고 싶은 사진을 올리면 내 카메라·렌즈로 어떻게 찍을지 알려드려요' : '예시 사진에서 원하는 느낌을 고르면 내 카메라·렌즈로 어떻게 찍을지 알려드려요'}</p>
+      <p class="ref-note">${ai ? '분석 후 사진은 저장되지 않아요' : '내 사진 올리기는 설정 맨 아래 \'사진 분석 서버\'에서 AI 분석을 켜면 열려요'}</p>
     </section>
-    <label class="btn press file ${offline ? 'off' : ''}">
+    ${ai ? `<label class="btn press file ${offline ? 'off' : ''}">
       사진 올리기<input type="file" accept="image/*" id="refFile" ${offline ? 'disabled' : ''}>
     </label>
-    ${offline ? '<p class="foot center">이 기능은 인터넷이 필요해요</p>' : ''}
+    ${offline ? '<p class="foot center">이 기능은 인터넷이 필요해요</p>' : ''}` : ''}
     ${refSamplesRow()}`;
   const inp = $('refFile');
-  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) refAnalyze(view, f); });
+  if (inp) inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) refAnalyze(view, f); });
   bindRefSamples(view);
 }
 function bindRefSamples(view) {
@@ -257,6 +335,9 @@ function bindRefSamples(view) {
 
 // 원본 File → EXIF(원본에서) → 캔버스 축소본(긴 변 1024, dataURL) → analyzeImage → 세션 저장 → #ref.pick
 async function refAnalyze(view, file) {
+  if (!/^image\/(jpe?g|png|webp)$/i.test(file.type || '') && !/\.(jpe?g|png|webp)$/i.test(file.name || '')) {
+    return renderRefError(view, '아이폰 HEIC 등 이 형식은 열 수 없어요. 사진 앱에서 JPEG으로 내보내거나 \'호환성 높음\'으로 저장한 뒤 올려주세요');
+  }
   const url = URL.createObjectURL(file);
   try {
     renderRefLoading(view, null);
@@ -270,7 +351,7 @@ async function refAnalyze(view, file) {
     refSave({ features, exif, thumb, summary: m.summary, sameSceneId: m.sameSceneId, subject: m.subjectId, scene: null });
     location.hash = 'ref.pick';
   } catch (e) {
-    renderRefError(view, e && /2단계/.test(e.message) ? 'AI 분석은 아직 준비 중이에요. 설정에서 분석 모드를 mock으로 바꾸면 예시로 볼 수 있어요' : null);
+    renderRefError(view, e && e.message && !/이미지를 열 수 없음/.test(e.message) ? e.message : (e && /이미지를 열 수 없음/.test(e.message) ? '사진을 열 수 없어요. JPEG으로 다시 올려주세요' : null));
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -326,16 +407,15 @@ function renderRefPick(view) {
       <p class="ref-summary">${esc(s.summary || '분석 결과 없음')}</p>
       ${refExifLine(s.exif)}
     </section>
-    <h2 class="sec">지금 어디서 찍나요?</h2>
-    ${same ? `<button type="button" class="card press scene same" data-scene="${same.id}"><span class="label-accent">사진과 같은 곳</span><b>${same.label}</b><small>${same.sub}</small></button>` : ''}
-    <div class="grid">
-      ${SCENES.map((sc) => `<button type="button" class="card press scene" data-scene="${sc.id}"><b>${sc.label}</b><small>${sc.sub}</small></button>`).join('')}
-    </div>
     <h2 class="sec">누구를 찍나요?</h2>
     <div class="lens-row" role="radiogroup" aria-label="피사체">
       ${SUBJECTS.map((u) => `<button type="button" role="radio" aria-checked="${u.id === s.subject}" class="lens-btn ${u.id === s.subject ? 'on' : ''}" data-subject="${u.id}">${u.label}</button>`).join('')}
     </div>
-    <p class="foot">상황을 누르면 바로 결과로 갑니다</p>`;
+    <h2 class="sec">지금 어디서 찍나요? <span class="muted">(누르면 결과)</span></h2>
+    ${same ? `<button type="button" class="card press scene same" data-scene="${same.id}"><span class="label-accent">사진과 같은 곳</span><b>${same.label}</b><small>${same.sub}</small></button>` : ''}
+    <div class="grid">
+      ${SCENES.map((sc) => `<button type="button" class="card press scene" data-scene="${sc.id}"><b>${sc.label}</b><small>${sc.sub}</small></button>`).join('')}
+    </div>`;
   view.querySelectorAll('[data-subject]').forEach((b) => b.addEventListener('click', () => {
     s.subject = b.dataset.subject; refSave(s);
     view.querySelectorAll('[data-subject]').forEach((x) => { const on = x.dataset.subject === s.subject; x.classList.toggle('on', on); x.setAttribute('aria-checked', on); });
@@ -382,7 +462,7 @@ function renderRefResult(view, opts = {}) {
       <p class="ref-note">색감의 절반은 보정이에요</p>
       <div class="rules">
         <div class="rule"><span class="c">픽처스타일</span><span class="a">${esc(m.colorTips.ps || '조정 없음')}</span></div>
-        <div class="rule"><span class="c">보정 방향</span><span class="a">${esc(editTxt)}</span></div>
+        <div class="rule"><span class="c">보정 방향</span><span class="a">${esc(editTxt.replace(/^라이트룸:/, '폰 갤러리 편집(또는 라이트룸):'))}</span></div>
       </div>
     </section>
     ${m.moveTip ? `<p class="why">${esc(m.moveTip)}</p>` : ''}
@@ -390,6 +470,7 @@ function renderRefResult(view, opts = {}) {
     <a class="btn press ghost" href="#ref.pick">상황 바꾸기</a>
     <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
   bindLensRow(view, r, (prev) => renderRefResult(view, { prev }));
+  bindFocus(view);
   flashChanged(view, r, opts.prev);
 }
 
@@ -495,7 +576,8 @@ function renderDiagError(view, msg) {
     <a class="btn press" href="#diag">돌아가기</a>`;
 }
 
-const LIGHT_LABEL = { blur: '흔들림', face: '얼굴', highlights: '하늘', noise: '노이즈', mode: '모드' };
+const LIGHT_LABEL = { blur: '흔들림', face: '얼굴 밝기', highlights: '하얗게 날아감', noise: '노이즈', mode: '촬영 모드' };
+const LIGHT_WORD = { ok: '좋음', warn: '주의', bad: '문제' };
 const SEV_ICON = {
   bad: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f04452" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   warn: '<svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v9"/><circle cx="12" cy="18.5" r="1" fill="#f59e0b"/></svg>',
@@ -512,7 +594,7 @@ function renderDiagResult(view, opts = {}) {
   const gear = s.findings.find((f) => f.key === 'gear');
   const rest = s.findings.filter((f) => f.key !== 'gear');
   const allOk = !rest.some((f) => f.sev === 'bad' || f.sev === 'warn');
-  const dot = (k) => `<div><span>${LIGHT_LABEL[k]}${k === 'face' && s.faceEstimate ? '(추정)' : ''}</span><i class="dot ${s.lights[k]}" title="${s.lights[k]}"></i></div>`;
+  const dot = (k) => `<div><span>${LIGHT_LABEL[k]}${k === 'face' && s.faceEstimate ? '(추정)' : ''}</span><i class="dot ${s.lights[k]}" title="${LIGHT_WORD[s.lights[k]]}"></i><small class="${s.lights[k]}">${LIGHT_WORD[s.lights[k]]}</small></div>`;
   view.innerHTML = `
     ${header('내 사진 진단', '#diag', { noGear: true })}
     <section class="card ref-photo">
@@ -551,7 +633,7 @@ function renderSubjects(view, sceneId) {
     ${header(s.label, '#home', { subtitle: s.sub })}
     <p class="lead">누구를 찍나요?</p>
     <div class="grid">
-      ${SUBJECTS.map((u, i) => `<a class="card press scene tall" href="#r.${s.id}.${u.id}"><b>${u.label}</b><small>${cam.hasCModes ? cam.cModes[u.id === 'kid' ? 1 : 0] + ' 모드 · ' : ''}최소 셔터 ${fmtShutter(u.minShutter)}</small></a>`).join('')}
+      ${SUBJECTS.map((u, i) => `<a class="card press scene tall" href="#r.${s.id}.${u.id}"><b>${u.label}</b><small>${u.id === 'kid' ? '뛰고 걷고 노는 중' : '앉아 있거나 포즈'}${cam.hasCModes ? ' · ' + cam.cModes[u.id === 'kid' ? 1 : 0] : ''}</small></a>`).join('')}
     </div>`;
 }
 
@@ -573,11 +655,14 @@ function renderResult(view, req, opts = {}) {
   }
   const title = style ? style.title : r.scene.label;
   const subtitle = style ? `${r.scene.label} · ${r.subject.label}` : r.subject.label;
-  const recLens = style ? recommendHint(style, cam, byId(LENSES, lens)) : null;
+  let recLens = style ? recommendHint(style, cam, byId(LENSES, lens)) : null;
+  // 스타일 권장 조건을 현재 렌즈가 못 맞추고 내 렌즈 중 맞는 게 있으면 처음 들어올 때 그 렌즈로 자동 전환 (렌즈 칩으로 바꾸면 그대로 둠)
+  if (recLens && recLens.ok.length && !opts.prev && !opts.noAuto) { store.set(K.lens, recLens.ok[0].id); return renderResult(view, req, { noAuto: true, autoLens: recLens.ok[0] }); }
 
   view.innerHTML = `
     ${header(title, back, { subtitle })}
     ${lensRow(cam, lens)}
+    ${opts.autoLens ? `<p class="ref-info">이 사진엔 ${opts.autoLens.tab}로 계산했어요 (권장 조건에 맞는 내 렌즈)</p>` : ''}
     ${style ? `
       <section class="card cond">
         <div class="slot wide">${slotImg(style.image)}${style.image ? '' : '<small>내 사진 자리</small>'}</div>
@@ -593,14 +678,28 @@ function renderResult(view, req, opts = {}) {
     <a class="btn press" href="#home">다른 상황 고르기</a>
     <p class="foot">값은 시작점이에요. 한 장 찍고 재생 화면에서 얼굴 밝기부터 확인</p>`;
 
-  bindLensRow(view, r, (prev) => renderResult(view, req, { prev }));
+  bindLensRow(view, r, (prev) => renderResult(view, req, { prev, noAuto: true }));
+  bindFocus(view);
   flashChanged(view, r, opts.prev);
+}
+// '핵심만 보기': 숫자 + 다이얼 카드만 남기고 나머지를 숨긴다(스크린샷 한 장용). 상태는 localStorage.
+function focusBtn() {
+  const on = !!store.get(K.focus, false);
+  return `<button type="button" class="mini press focus-btn" id="focusBtn">${on ? '전체 보기' : '핵심만 보기'}</button>`;
+}
+function bindFocus(view) {
+  const on = !!store.get(K.focus, false);
+  view.classList.toggle('focus', on);
+  const b = $('focusBtn');
+  if (b) b.addEventListener('click', () => { store.set(K.focus, !on); view.classList.toggle('focus', !on); b.textContent = !on ? '전체 보기' : '핵심만 보기'; });
 }
 
 // 스타일의 recommend 조건을 현재 렌즈가 못 맞출 때만 안내. { need, ok: 내 렌즈 중 맞는 것 } 또는 null
 function recommendHint(style, cam, lens) {
   const rc = style.recommend || {};
-  const meets = (l) => (rc.maxAp == null || l.apMin <= rc.maxAp) && (rc.minFocal == null || Math.round(l.tele * cam.crop) >= rc.minFocal) && (rc.maxWide == null || Math.round(l.wide * cam.crop) <= rc.maxWide);
+  // 배경 흐림은 (초점거리 × 크롭) ÷ 조리개(입사동 지름)에 비례: 50mm f/2.2 ≈ 23, 105mm f/4 ≈ 26 → 망원 줌도 밝은 단렌즈만큼 흐려진다 (match.md (i))
+  const blurIdx = (l) => Math.round(l.tele * cam.crop) / l.apMin;
+  const meets = (l) => (rc.maxAp == null || l.apMin <= rc.maxAp || blurIdx(l) >= BLUR_INDEX_MIN) && (rc.minFocal == null || Math.round(l.tele * cam.crop) >= rc.minFocal) && (rc.maxWide == null || Math.round(l.wide * cam.crop) <= rc.maxWide);
   if (meets(lens)) return null;
   const need = [rc.maxAp != null && lens.apMin > rc.maxAp ? `f/${rc.maxAp} 이하 밝은 렌즈` : null,
     rc.minFocal != null && Math.round(lens.tele * cam.crop) < rc.minFocal ? `${rc.minFocal}mm 이상` : null,
@@ -647,14 +746,16 @@ function renderKeyCard(r, opts = {}) {
   const context = `${cam.short} · ${r.lens.label}${r.cropNote ? ` · ${r.cropNote}` : ''}${r.adapter ? ' · <span class="muted">어댑터 필요</span>' : ''}${opts.recLens ? ` · <span class="info">권장 ${opts.recLens.need}${opts.recLens.ok.length ? ` · 내 렌즈 중 ${opts.recLens.ok.map((l) => l.tab).join(', ')}` : ' (내 렌즈 중엔 없음)'}</span>` : ''}`;
   return isAv ? `
     <section class="card key">
-      <p class="sub">${context}</p>
+      <p class="sub">${context}${focusBtn()}</p>
       <div class="nums">
         <div><span>조리개</span>${num('aperture', `f/${r.aperture}`)}</div>
         <div><span>노출보정</span>${num('ec', fmtEC(r.ec))}</div>
         <div><span>모드</span><b class="num">${modeLabel}</b></div>
       </div>
-      <p class="sub">${evLabel} 기준 예상: ${num('shutter', fmtShutter(r.shutter))} · ${num('iso', `ISO ${r.iso}`)}${capped ? ' <span class="warn">· ISO 상한 도달</span>' : ''}</p>
-      ${r.mAuto ? `<p class="sub">M이지만 ISO는 AUTO. 셔터 ${fmtShutter(r.minShutter)}와 조리개를 고정하고 밝기는 카메라가 ISO로 맞춤 (이 기종은 Av에서 최소 셔터를 정할 수 없음)</p>` : ''}
+      ${r.mAuto
+        ? `<p class="sub" title="${evLabel}">셔터 <b>${fmtShutter(r.minShutter)}</b> 고정 · ISO는 카메라가 ${num('iso', String(r.iso))}${capped ? ` <span class="warn">(상한 ${r.isoMax}으로도 모자라 어둡게 나올 수 있음)</span>` : ' 정도로 맞춤'}<span class="num" data-key="shutter" hidden>${fmtShutter(r.shutter)}</span></p>
+           <p class="sub">M이지만 ISO는 AUTO. 셔터와 조리개를 고정하고 밝기는 카메라가 ISO로 맞춤 (이 기종은 Av에서 최소 셔터를 정할 수 없음)</p>`
+        : `<p class="sub" title="${evLabel}">카메라가 알아서 정할 값(참고): 셔터 약 ${num('shutter', fmtShutter(r.shutter))} · ${num('iso', `ISO 약 ${r.iso}`)}${capped ? ' <span class="warn">· ISO 상한에 걸려 셔터가 느려짐</span>' : ''}</p>`}
     </section>` : `
     <section class="card key">
       <p class="sub">${context} · <b>M 모드, 수동 ISO</b></p>
@@ -671,8 +772,13 @@ function renderKeyCard(r, opts = {}) {
 function renderDialCard(r) {
   const cam = r.camera, isAv = r.mode === 'Av';
   const needSetup = cam.hasCModes && !setupDone();
-  const dial = dialSteps(r);
-  if (isAv && needSetup) dial[0] += ' <span class="muted">(⚙ 등록 필요)</span>';
+  let dial = dialSteps(r);
+  // C 모드를 아직 등록하지 않았으면 C1/C2 대신 Av + AF·드라이브·최소 셔터를 직접 (등록 전 임시)
+  if (isAv && needSetup && !r.mAuto) {
+    dial = [`모드 다이얼을 <b>Av</b>에 <span class="muted">(${r.cmode} 등록 전 임시)</span>`].concat(dial.slice(1),
+      [`AF 버튼 → <b>${r.af}</b> / AF 영역 선택 버튼 → <b>${r.afAreaName}</b> / DRIVE 버튼 → <b>${r.drive}</b>`,
+       cam.hasMinShutter === false ? '' : `${cam.menu.minShutter.path} <b>${fmtShutter(r.minShutter)}</b>`].filter(Boolean));
+  }
 
   const detail = [];
   if (r.lens.fieldTip) detail.push(r.lens.fieldTip);
@@ -690,19 +796,31 @@ function renderDialCard(r) {
   if (r.apNotes.length) detail.push(r.apNotes.join(' '));
 
   return `
-    <section class="card">
+    <section class="card dialc">
       <h2>다이얼 순서</h2>
       <ol class="steps">${dial.map((d, i) => `<li><span class="n">${i + 1}</span><span>${d}</span></li>`).join('')}</ol>
+      ${needSetup && isAv ? `<a class="mini press" href="#settings">한 번 등록해 두면 1단계로 끝나요 → 설정</a>` : ''}
       <details class="more"><summary>자세히</summary><ul>${li(detail)}</ul></details>
     </section>`;
 }
 
-// ③ 현장 조정 (플래그 규칙 + 상황 규칙)
+// 「상황명」·「스타일명」을 그 결과 화면 링크로 (현장 조정 문구 안의 이동 안내)
+function linkNames(text, subjectId) {
+  return text.replace(/「([^」]+)」/g, (m, name) => {
+    const sc = SCENES.find((s) => s.label === name);
+    if (sc) return `<a class="info" href="#r.${sc.id}.${subjectId}">「${name}」</a>`;
+    const st = STYLES.find((s) => s.title === name);
+    if (st) return `<a class="info" href="#style.${st.id}">「${name}」</a>`;
+    return m;
+  });
+}
+// ③ 현장 조정 (플래그 규칙 + 상황 규칙). 같은 조치가 두 번 나오면 하나만.
 function renderRulesCard(r) {
-  const rules = [...flagRules(r), ...r.adjust].map(([c, a]) => [c, fillSteps(a, r)]);
+  const seen = new Set();
+  const rules = [...flagRules(r), ...r.adjust].map(([c, a]) => [c, linkNames(fillSteps(a, r), r.subject.id)]).filter(([c, a]) => { const k = a.replace(/<[^>]+>/g, ''); if (seen.has(k)) return false; seen.add(k); return true; });
   return `
     <section class="card">
-      <h2>현장 조정</h2>
+      <h2>현장 조정 <span class="muted small">찍어 보고 이상하면</span></h2>
       <div class="rules">${rules.map(([c, a]) => `<div class="rule${c ? '' : ' full'}"><span class="c">${c}</span><span class="a">${a}</span></div>`).join('')}</div>
     </section>`;
 }
@@ -737,7 +855,7 @@ function renderSettings(view) {
 
   let cmodes;
   if (cam.hasCModes) {
-    cmodes = `<h2 class="sec">2. ${cam.cModes.join('·')} 등록</h2>
+    cmodes = `<h2 class="sec">2. 아이용·사람용 세트 저장 (${cam.cModes.join('·')})</h2>
       <p class="lead">공통 설정을 끝낸 상태에서 순서대로. ${cam.cModes[0]} = 가만히 있는 사람, ${cam.cModes[1]} = 움직이는 아이.</p>
       <div class="list">${SETUP_CMODE_STEPS.map((base, i) => {
         const s = Object.assign({}, base, base[cam.family] || (cam.mount === 'RF' ? base.rf : null) || {}, base[cam.id] || {});   // family별 문구 덮어쓰기(RF 마운트는 family가 달라도 rf 문구) + 바디 id별 덮어쓰기(예: 6D 최소 셔터 상한)
@@ -756,26 +874,27 @@ function renderSettings(view) {
 
   view.innerHTML = `
     ${header('설정', '#home', { noGear: true })}
-    <p class="lead">처음 한 번만 15분. 순서대로 하고 맨 아래 등록 완료를 누르세요.</p>
+    <p class="lead">처음 한 번만 ${cam.hasCModes ? '15분' : '10분'}. 순서대로 하고 맨 아래 등록 완료를 누르세요.</p>
     <h2 class="sec">내 카메라</h2>
-    <a class="card press mycam" href="#camera.settings"><span class="txt"><b>${cam.name}</b><small>${cam.verified ? '매뉴얼 검증 완료' : '검증 전'} · 누르면 변경</small></span><span class="chev">›</span></a>
+    <a class="card press mycam" href="#camera.settings"><span class="txt"><b>${cam.name}</b><small>${cam.verified ? '' : '검증 전 · '}누르면 변경</small></span><span class="chev">›</span></a>
     <h2 class="sec">내 렌즈</h2>
     <p class="lead">가진 렌즈를 모두 체크. 체크한 렌즈만 결과 화면 버튼으로 나옵니다.</p>
     <div class="list">${lensChecks(cam)}</div>
-    <h2 class="sec">사진 분석</h2>
-    <section class="card analyze">
-      <p class="lbl">분석 모드</p>
-      ${segment([{ id: 'mock', label: 'mock' }, { id: 'gemini', label: 'gemini' }], refMode(), 'mode', 'tight')}
-      <label class="field"><span class="lbl">Gemini API 키</span>
-        <span class="row"><input type="password" id="geminiKey" autocomplete="off" placeholder="AIza…" value="${esc(store.get(K.geminiKey, '') || '')}"><button type="button" class="lens-btn on" id="geminiTest" ${store.get(K.geminiKey, '') ? '' : 'disabled'}>연결 테스트</button></span>
-      </label>
-      <p class="ref-note" id="geminiTestOut">키는 이 폰에만 저장돼요. 분석 모드가 gemini일 때만 사용돼요</p>
-    </section>
     <h2 class="sec">1. 공통 설정</h2>
     <div class="list">${common}</div>
     ${cmodes}
     <p class="lead small">메뉴명은 영문 매뉴얼 기준이고 괄호 안 한글은 추정입니다. 카메라에서 확인 후 알려주면 확정합니다.</p>
-    <button type="button" class="btn press" id="setupDone">${setupDone() ? '등록 완료됨 (다시 누르면 해제)' : '등록 완료'}</button>`;
+    <button type="button" class="btn press" id="setupDone">${setupDone() ? '등록 완료됨 (등록 다시 하려면 누르기)' : '등록 완료'}</button>
+    <details class="more adv"><summary>고급: 사진 분석 서버 (선택)</summary>
+    <section class="card analyze">
+      <p class="lbl">'이 사진처럼 찍기'에서 내 사진 분석</p>
+      ${segment([{ id: 'mock', label: '예시만 사용' }, { id: 'gemini', label: 'AI 분석 (키 필요)' }], refMode(), 'mode', 'tight')}
+      <label class="field"><span class="lbl">Gemini API 키</span>
+        <span class="row"><input type="password" id="geminiKey" autocomplete="off" placeholder="AIza…" value="${esc(store.get(K.geminiKey, '') || '')}"><button type="button" class="lens-btn on" id="geminiTest" ${store.get(K.geminiKey, '') ? '' : 'disabled'}>연결 테스트</button></span>
+      </label>
+      <p class="ref-note" id="geminiTestOut">키는 이 폰에만 저장돼요. AI 분석을 골랐을 때만 사용돼요</p>
+    </section>
+    </details>`;
   bindLensChecks(view);
   view.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
     store.set(K.refMode, b.dataset.mode);

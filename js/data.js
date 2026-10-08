@@ -4,6 +4,8 @@
 // 조치 안의 {isoSteps} {shutterSteps}는 app.js가 현재 값 기준 다음 3단계로 치환.
 
 // 바디 공통 상수 (바디별 값은 CAMERAS에)
+// 배경 흐림 지수 하한(환산 초점거리 ÷ 최대 개방 ≥ 20이면 '밝은 렌즈 수준'으로 본다). match.js·app.js recommendHint 공용. 근거 docs/match.md (i)
+const BLUR_INDEX_MIN = 20;
 const CAMERA_COMMON = {
   handheldCap: 1 / 15,       // IS가 있어도 초보 기준 이보다 느리게 들지 않음
   isStopsDefault: 4,         // IS 있는데 isStops 미확인인 렌즈(EF 24-105)에 적용. 핸드헬드 여유 = 2^(isStops−2)배, 상한 1/15
@@ -61,10 +63,11 @@ const CAMERAS = [
   },
   {
     // RF 미러리스 첫 기종. page는 PDF 쪽수 대신 온라인 가이드(펌웨어 1.7.0 기준) 페이지 URL.
-    id: 'eosr6m2', name: 'EOS R6 Mark II', short: 'R6 II', family: 'rf', mount: 'RF', crop: 1,
+    id: 'eosr6m2', name: 'EOS R6 Mark II', short: 'R6 II', exifModels: ['EOS R6m2', 'EOS R6 Mark II'], family: 'rf', mount: 'RF', crop: 1,
     isoMin: 100, isoMax: 102400, isoUsable: 12800, isoHard: 25600, isoAutoMaxMin: 200,
     shutterFastest: 1 / 8000, shutterLongest: 30,   // 기계식·전자 선막 기준. 전자셔터 1/16000은 앱에서 쓰지 않음
     hasCModes: true, cModes: ['C1', 'C2', 'C3'], ecDial: 'quick',   // 노출보정 기본 = 퀵 컨트롤 다이얼 1
+    isoDial: 'ISO 버튼 → 퀵 컨트롤 다이얼 2 한 클릭씩 올리기',
     afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 12,
     menu: {
       imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 'https://cam.start.canon/en/C012/manual/html/UG-04_Shooting-1_0030.html' },
@@ -95,9 +98,10 @@ const CAMERAS = [
     // 크롭 미러리스·1다이얼. 스틸 C 모드 없음(Custom shooting mode는 동영상 모드에서만 표시), ISO 자동 최소 셔터 메뉴 없음(Max for Auto만).
     // 가이드 https://cam.start.canon/en/C011/manual/ (영문 온라인). 사양: UG-11_Reference_0090
     id: 'eosr50', name: 'EOS R50', short: 'R50', family: 'rf1dial', mount: 'RF', crop: 1.6,
-    isoMin: 100, isoMax: 32000, isoUsable: 6400, isoHard: 12800, isoAutoMaxMin: 400,   // H 51200(C.Fn ISO expansion)은 앱에서 쓰지 않음. Max for Auto 400–32000
+    isoMin: 100, isoMax: 32000, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 400,   // APS-C 공통 3200/6400 (facts.md 공통 4). H 51200(C.Fn ISO expansion)은 앱에서 쓰지 않음. Max for Auto 400–32000
     shutterFastest: 1 / 4000, shutterLongest: 30,   // 전자 선막 기준(기계식 셔터 없음). 전자셔터 1/8000은 앱에서 쓰지 않음
     hasCModes: false, cModes: [], ecDial: 'button',   // 노출보정 = ▲(노출보정) 버튼 누른 뒤 다이얼 (UG-05_Shooting-1_0070)
+    isoDial: 'ISO 버튼 → 다이얼 한 클릭씩 올리기',
     hasMinShutter: false, isoAutoMaxLabel: 'Max for Auto',   // Min. shutter spd. 메뉴 없음 → 움직이는 아이는 M + ISO AUTO (exposure.js r.mAuto, dials.js rf1dial)
     afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 12,   // High-speed continuous + 전자 선막 약 12컷/초
     menu: {
@@ -136,6 +140,7 @@ const CAMERAS = [
     isoMin: 100, isoMax: 102400, isoUsable: 12800, isoHard: 25600, isoAutoMaxMin: 200,   // L 50 / H 204800은 앱에서 쓰지 않음
     shutterFastest: 1 / 4000, shutterLongest: 30,   // 전자 선막 기준. 전자셔터 1/8000(연사+)·1/16000은 앱에서 쓰지 않음
     hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',   // 노출보정 = 퀵 컨트롤 다이얼 (UG-04_Shooting-1_0080)
+    isoDial: '화면 오른쪽 아래 ISO 터치 → 퀵 컨트롤 다이얼 한 클릭씩 올리기',
     shutterBase: 'Elec. 1st-curtain',   // 기계식 셔터 없음 → C 모드 단계 연사 문구 {shutterBase}
     afModes: { still: 'One-Shot AF', kid: 'Servo AF' }, afAreaStill: '1-point AF', afAreaKid: 'Whole area AF', burstFps: 6,   // High-speed continuous + 전자 선막 약 6.0컷/초 (전자셔터 40은 앱 미사용)
     menu: {
@@ -168,7 +173,7 @@ const CAMERAS = [
   {
     // 크롭(APS-C 1.6) DSLR·2다이얼(메인 + 퀵 컨트롤), C1·C2 있음. 첫 crop2dial 바디. 매뉴얼: Advanced User Guide PDF(영문), 쪽수는 PDF 페이지 = 인쇄 페이지.
     id: 'eos90d', name: 'EOS 90D', short: '90D', family: 'crop2dial', mount: 'EF', crop: 1.6,
-    isoMin: 100, isoMax: 25600, isoUsable: 6400, isoHard: 12800, isoAutoMaxMin: 200,   // H 51200(ISO expansion)은 앱에서 쓰지 않음. Auto range 최대의 하한 200은 6D2·5D4와 같은 UI로 추정(facts.md 참고)
+    isoMin: 100, isoMax: 25600, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 200,   // APS-C 공통 3200/6400 (facts.md 공통 4). H 51200(ISO expansion)은 앱에서 쓰지 않음. Auto range 최대의 하한 200은 6D2·5D4와 같은 UI로 추정(facts.md 참고)
     shutterFastest: 1 / 8000, shutterLongest: 30,   // 기계식. 라이브뷰 전자셔터 1/16000은 앱에서 쓰지 않음
     hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',
     afModes: { still: 'One-Shot', kid: 'AI Servo' }, afAreaStill: '1점 AF', afAreaKid: '존 AF', burstFps: 10,   // 뷰파인더 고속 연사 약 10컷/초 (p.150)
@@ -219,6 +224,7 @@ const CAMERAS = [
     isoMin: 100, isoMax: 25600, isoUsable: 6400, isoHard: 12800, isoAutoMaxMin: 200,   // L 50·H1 51200·H2 102400 미사용. Auto ISO range 최대 200–25600 (p.110)
     shutterFastest: 1 / 4000, shutterLongest: 30,
     hasCModes: true, cModes: ['C1', 'C2'], ecDial: 'quick',
+    isoAutoMaxLabel: 'Auto ISO range',   // 메뉴명이 Auto range가 아니라 Auto ISO range (p.110). 현장 조정 문구 치환용
     minShutterCap: 1 / 250,   // Min. shutter spd. 범위 1/250–1초 (p.111) → 움직이는 아이 1/500은 설정 불가. compute가 1/250으로 묶고 현장 조정에 M + ISO AUTO 안내
     burstLabel: '연속',       // 고속 연사 모드 없음. 연속 약 4.5컷/초 (p.98)
     afModes: { still: 'One-Shot', kid: 'AI Servo' }, afAreaStill: '1점 (수동 선택)', afAreaKid: '자동 선택 (11점)', burstFps: 4.5,
@@ -226,14 +232,14 @@ const CAMERAS = [
       imageQuality: { path: 'MENU → 촬영 1탭 → Image quality', page: 102 },
       isoAutoRange: { path: 'MENU → 촬영 3탭 → ISO speed settings → Auto ISO range', page: 110, value: 'Auto ISO range → Maximum {isoUsable}' },
       minShutter:   { path: 'MENU → 촬영 3탭 → ISO speed settings → Min. shutter spd. (1/250–1초만 가능)', page: 111 },
-      pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → 인물 → INFO 버튼', page: 115 },
+      pictureStyle: { path: 'MENU → 촬영 4탭 → Picture Style → 인물 → INFO 버튼', page: 115, value: '인물(Portrait) 선택 → INFO → 샤프니스 +1, 채도 +1 (이 기종은 샤프니스 슬라이더 하나)' },
       wb:           { path: 'MENU → 촬영 3탭 → White balance', page: 120 },
       awbPriority:  { path: '이 기종은 AWB 분위기 우선/화이트 우선 구분이 없음 (AWB 하나)', page: 120, na: true,
         value: 'AWB (우선 설정 없음)', why: '2012년 기종이라 AWB가 하나뿐. 텅스텐 조명 아래 노란 느낌은 WB → 텅스텐 프리셋으로 조절.' },
       alo:          { path: 'MENU → 촬영 3탭 → Auto Lighting Optimizer', page: 125 },
       highIsoNr:    { path: 'MENU → 촬영 4탭 → High ISO speed NR', page: 126 },
       antiFlicker:  { path: '이 기종엔 안티플리커 기능 없음 (사양 p.372)', page: 372, na: true,
-        value: '없음', why: '실내 LED·형광등 아래에서 줄무늬·밝기 들쭉날쭉이 생기면 셔터를 1/100 이하로.' },
+        value: '없음', why: '실내 LED·형광등 아래에서 줄무늬·밝기 들쭉날쭉이 생기면 셔터를 1/60 또는 1/125로 (한국은 60Hz).' },
       customMode:   { path: 'MENU → 설정(공구) 4탭 → Custom shooting mode (C1, C2) → Register settings', page: 328 },
       lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
     },
@@ -244,10 +250,11 @@ const CAMERAS = [
   {
     // 크롭 DSLR·1다이얼(메인 다이얼 + Av± 버튼, 퀵 컨트롤 다이얼 없음), C 모드 없음, 최소 셔터 메뉴 없음(Max for Auto만), 안티플리커 없음, AF 9점(존 AF 없음).
     // 매뉴얼: Advanced User Guide PDF(495쪽) 쪽수 = 인쇄 쪽수. 메뉴 탭 번호는 가이드 텍스트가 아이콘으로만 표시해 미확인 → '촬영 탭'으로 표기.
-    id: 'eos250d', name: 'EOS 200D II', short: '200D II', family: 'crop1dial', mount: 'EF', crop: 1.6,
+    id: 'eos250d', name: 'EOS 200D II', short: '200D II', exifModels: ['EOS 250D', 'EOS 200D II', 'Rebel SL3', 'Kiss X10'], family: 'crop1dial', mount: 'EF', crop: 1.6,
     isoMin: 100, isoMax: 25600, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 400,   // H 51200 미사용. Max for Auto 400–25600 (p.120)
     shutterFastest: 1 / 4000, shutterLongest: 30,
     hasCModes: false, cModes: [], ecDial: 'button',   // 노출보정 = Av± 버튼 누른 채 메인 다이얼 (p.160)
+    isoDial: 'ISO 버튼(상단) → 메인 다이얼 한 클릭씩 올리기',
     hasMinShutter: false, isoAutoMaxLabel: 'Max for Auto',   // Min. shutter spd. 메뉴 없음 → 움직이는 아이는 M + ISO AUTO (exposure.js r.mAuto, dials.js crop1dial)
     burstLabel: '연속',       // 고속 연사 모드 없음. 연속 약 5.0컷/초 (위키·리뷰)
     afModes: { still: 'One-Shot AF', kid: 'AI Servo AF' }, afAreaStill: '1점 (수동 선택)', afAreaKid: '자동 선택 (9점)', burstFps: 5,
@@ -261,8 +268,8 @@ const CAMERAS = [
       alo:          { path: 'MENU → 촬영 탭 → Auto Lighting Optimizer', page: 136 },
       highIsoNr:    { path: 'MENU → 촬영 탭 → High ISO speed NR', page: 138 },
       antiFlicker:  { path: '이 기종엔 안티플리커 기능 없음 (가이드 기능 목록 p.13에 없음)', page: 13, na: true,
-        value: '없음', why: '실내 LED·형광등 아래에서 줄무늬·밝기 들쭉날쭉이 생기면 셔터를 1/100 이하로.' },
-      customMode:   { path: '이 기종엔 C 모드 없음 (모드 다이얼 p.30)', page: 30, na: true },
+        value: '없음', why: '실내 LED·형광등 아래에서 줄무늬·밝기 들쭉날쭉이 생기면 셔터를 1/60 또는 1/125로 (한국은 60Hz).' },
+      customMode:   { path: '이 기종엔 C 모드 없음 (모드 다이얼 크리에이티브 존 p.31: P·Tv·Av·M뿐)', page: 31, na: true },
       lensAdapter:  { path: '해당 없음 (EF 마운트, 어댑터 불필요)', page: null, na: true },
     },
     pages: { afMode: 104, afArea: 108, drive: 112, avMode: 152, mMode: 155, ec: 160, iso: 118 },
@@ -271,7 +278,7 @@ const CAMERAS = [
   },
   {
     // 크롭 DSLR·2다이얼(메인 + 뒷면 퀵 컨트롤 다이얼), C 모드 없음, 최소 셔터 메뉴 없음(Max for Auto만). 온라인 가이드 C002(영문). 사양 UG-11_Reference_0100.
-    id: 'eos850d', name: 'EOS 850D', short: '850D', family: 'crop2dial', mount: 'EF', crop: 1.6,
+    id: 'eos850d', name: 'EOS 850D', short: '850D', exifModels: ['EOS 850D', 'Rebel T8i', 'Kiss X10i'], family: 'crop2dial', mount: 'EF', crop: 1.6,
     isoMin: 100, isoMax: 25600, isoUsable: 3200, isoHard: 6400, isoAutoMaxMin: 400,   // H 51200 미사용. Max for Auto 400–25600 (UG-06_Shooting-1_0110)
     shutterFastest: 1 / 4000, shutterLongest: 30,
     hasCModes: false, cModes: [], ecDial: 'quick',   // 노출보정 = 퀵 컨트롤 다이얼 (UG-04_AF-Drive_0110)
@@ -323,7 +330,7 @@ const WB = {
 const LENSES = [
   // EF (6D2·5D4 네이티브, RF 바디는 어댑터)
   { id: 'ef24105', mount: 'EF', label: 'EF 24-105mm f/4L IS USM', short: '24-105', tab: '24-105 f/4', chip: '24-105 f/4', wide: 24, tele: 105, apMin: 4, apMax: 22, portraitAp: 4, is: true, minFocus: 0.45, portraitFocal: 85,
-    note: '인물은 70~105mm로 당겨서. 배경 흐림은 밝은 단렌즈보다 약하지만 IS가 있어 어두운 곳에서 손떨림엔 강함. I형/II형 미확인.',
+    note: '인물은 70~105mm로 당겨서. 배경 흐림은 밝은 단렌즈보다 약하지만 IS가 있어 어두운 곳에서 손떨림엔 강함. I형·II형 공통.',
     fieldTip: '줌은 70~105mm로 당겨서 (배경 흐림↑, 얼굴 왜곡↓)' },
   { id: 'ef50', mount: 'EF', label: 'EF 50mm f/1.8 STM', short: '50mm', tab: '50mm f/1.8', chip: '50 f/1.8', wide: 50, tele: 50, apMin: 1.8, apMax: 22, portraitAp: 2.2, is: false, minFocus: 0.35, portraitFocal: 50,
     note: '기본 f/2.2~2.8. f/1.8은 심도가 너무 얕아 눈 초점이 빗나가기 쉬움. 35cm 안쪽은 초점이 안 맞음.' },
@@ -366,11 +373,11 @@ const LIGHTS = [
 // AF 모드·영역 명칭은 바디(afModes, afAreaStill/Kid)에서 읽고, 여기엔 피사체 쪽 안내만.
 const SUBJECTS = [
   { id: 'kid', label: '움직이는 아이', minShutter: 1 / 500,
-    afAreaHint: '아이 몸통이 영역 안에 들어오게',
-    afTip: '반셔터를 누른 채 아이를 따라가다가 연사. 멈추는 순간(점프 꼭대기, 방향 전환)이 가장 잘 나옴.' },
+    afAreaHint: '존을 아이 얼굴·머리에. 존은 가장 가까운 것에 맞으니 손·장난감이 앞에 오면 얼굴이 흐려짐',
+    afTip: '반셔터를 누른 채 아이를 따라가다가 연사. 멈추는 순간(점프 꼭대기, 방향 전환)이 가장 잘 나옴. 뛰어올 자리를 미리 잡고 아이 눈높이로 앉기. DSLR은 f/2.8이 눈 초점이 안전.' },
   { id: 'still', label: '가만히 있는 사람', minShutter: 1 / 125,
     afAreaHint: '가까운 쪽 눈에 점을 대고',
-    afTip: '눈에 초점을 맞춘 뒤 반셔터를 유지한 채 구도를 바꾸기. 라이브뷰 얼굴 추적도 정확함.' },
+    afTip: '가까운 쪽 눈에 측거점을 옮겨서(멀티컨트롤러). 반셔터 후 구도 바꾸기는 f/2.8 이상에서만(f/2.2는 초점면이 밀림). 라이브뷰 얼굴·눈 추적도 정확함.' },
 ];
 
 // 상황 8개. 조리개는 apRule('portrait' = 렌즈의 portraitAp, 'wideOpen' = 최대 개방)로 정하고 렌즈별 숫자를 적지 않는다. mode Av가 기본, M은 야경만. ISO 자동 상한은 바디의 isoUsable. wb는 전부 awbAmb.
@@ -383,7 +390,7 @@ const SCENES = [
     adjust: [
       ['얼굴에 그림자가 져 어두우면', '노출보정 +0.7'],
       ['하늘이 하얗게 날아가면', '노출보정 -0.3'],
-      ['하얀 옷·모래·눈이 많으면', '조리개 한 스톱 조이기 ({apStop}). 최고 셔터 {maxShutter} 초과 방지'],
+      ['하얀 옷·모래·눈이 많으면', '노출보정 +0.7 (카메라가 흰색을 회색으로 찍음). 셔터가 깜빡이면 조리개를 {apStop}로'],
       ['배경을 더 흐리고 싶으면', '그늘로 옮겨 「야외 그늘」로'],
     ],
     tips: ['정오 직사광은 눈 밑에 그림자가 짐. 해를 등지게 세우면 「역광」 상황이 됨.'] },
@@ -403,15 +410,15 @@ const SCENES = [
     why: '얼굴은 자기 그림자 속(그늘 밝기)인데 뒤는 밝아서 카메라가 얼굴을 어둡게 찍음. 노출보정 +1로 얼굴을 살림. 배경이 하얗게 날아가는 건 정상.',
     adjust: [
       ['해가 화면 안에 들어오면', '아이 머리나 나무 뒤로 해를 숨기기. 빛번짐(플레어)과 뿌연 사진의 가장 큰 원인'],
-      ['전체가 뿌옇게 번지면(플레어)', '손이나 후드로 렌즈 위를 가리고, 해를 화면 밖으로'],
-      ['얼굴이 여전히 어두우면', '노출보정 +1.3, 또는 측광 모드 버튼 → 스팟 측광으로 얼굴을 재기'],
-      ['하늘 색을 살리고 싶으면', '「실루엣」 스타일로 (원하는 사진 탭, M 모드)'],
+      ['전체가 뿌옇게 번지면(플레어)', '렌즈 앞 지문부터 닦기. 그래도면 손이나 후드로 렌즈 위를 가리고, 해를 화면 밖으로'],
+      ['얼굴이 여전히 어두우면', '노출보정 +1.3, 또는 Q 버튼 → 측광 모드 → 스팟: 중앙점을 얼굴에 대고 * 버튼(AE 잠금) 누른 뒤 구도 바꾸기'],
+      ['얼굴이 하얗게 뜨면 (미러리스는 얼굴 측광이 이미 밝게 잡음)', '노출보정 +0.3'],
     ],
-    tips: ['해가 낮은 오후 4시 이후가 쉬움. 정오 역광은 머리 위에서 내려와 효과가 약함.', '밝은 단렌즈(특히 50mm f/1.8)는 해가 화면 근처에만 있어도 플레어가 심함. 해를 등지되 화면엔 넣지 않기.'] },
+    tips: ['하늘 색을 살리고 싶으면 「실루엣」(원하는 사진 탭, M 모드).', '해가 낮은 오후 4시 이후가 쉬움. 정오 역광은 머리 위에서 내려와 효과가 약함.', '밝은 단렌즈(특히 50mm f/1.8)는 해가 화면 근처에만 있어도 플레어가 심함. 해를 등지되 화면엔 넣지 않기.'] },
 
-  { id: 'cloudyRain', label: '흐림·비', sub: '구름이 디퓨저', light: 'overcast', mode: 'Av',
+  { id: 'cloudyRain', label: '흐림·비', sub: '그림자 없는 날', light: 'overcast', mode: 'Av',
     apRule: 'portrait', ec: 0.3, wb: 'awbAmb', metering: '평가 측광', ps: '인물',
-    perCombo: { '*.still': { adjustLast: ['빗방울을 멈추고 싶으면', '아이용 세트로 (최소 셔터 1/500)'] } },
+    perCombo: { '*.still': { adjustLast: ['빗방울을 멈추고 싶으면', '「움직이는 아이」 세트로 바꾸기'] } },
     why: '구름이 거대한 디퓨저 역할을 해 그림자가 없음. 색이 차갑고 어둡게 나오니 노출보정 +0.3으로 보정.',
     adjust: [
       ['회색으로 칙칙하면', '노출보정 +0.7'],
@@ -420,7 +427,7 @@ const SCENES = [
     ],
     tips: ['방진방적 바디라도 렌즈와 마운트 틈은 비를 피할 것.', '우산·창문·젖은 바닥처럼 비의 흔적을 화면에 넣기.'] },
 
-  { id: 'indoorWindow', label: '실내 창가 낮', sub: '창 옆 90도', light: 'window', mode: 'Av',
+  { id: 'indoorWindow', label: '실내 창가 낮', sub: '창을 옆에 두고', light: 'window', mode: 'Av',
     apRule: 'portrait', ec: 0.3, wb: 'awbAmb', metering: '평가 측광', ps: '인물',
     why: '창빛은 한쪽에서 오는 부드러운 빛. 밝은 창이 화면에 들어오면 카메라가 얼굴을 어둡게 하므로 노출보정 +0.3.',
     adjust: [
@@ -431,16 +438,20 @@ const SCENES = [
     tips: ['창 옆 90도에 세우면 얼굴 반쪽에 빛이 들어 입체적. 창을 정면으로 보면 평면적.', '창빛(5200K)과 전구(3200K)가 섞이면 피부색이 틀어짐.'] },
 
   { id: 'indoorEvening', label: '실내 저녁 조명', sub: 'ISO가 올라가는 게 정상', light: 'home', mode: 'Av',
+    // 실내에서 아이는 1/320: 1/500보다 ISO 2/3스톱 절약. 크롭 바디(상한 3200)에서 f/2.2로 ISO 4000이 필요한 조합을 줄인다 (facts.md 공통 4)
+    perCombo: { '*.kid': { minShutter: 1 / 320, adjustFirst: ['아이가 뛰어다니면', '{minShutterSet} 1/500 (ISO가 상한에 걸리면 방 조명 전부 켜기)'] } },
     apRule: 'portrait', ec: 0, wb: 'awbAmb', metering: '평가 측광', ps: '인물',
-    why: '가정 조명은 낮 야외의 1/500 밝기. ISO가 수천까지 오르는 게 정상. 단렌즈 f/2.2는 f/4보다 빛을 3배 받아 ISO가 1.5스톱 낮음.',
+    why: '가정 조명은 낮 야외의 1/500 밝기. ISO가 수천까지 오르는 게 정상. 단렌즈 f/2.2는 f/4보다 빛을 3배 넘게 받아 ISO가 약 1.7스톱 낮음.',
     adjust: [
       ['흔들리면', 'MENU → ISO speed settings → Auto range → {isoHard}, 또는 방 조명 전부 켜기'],
-      ['얼굴이 너무 주황이면', 'Q 버튼 → WB → 텅스텐, 또는 AWB 화이트 우선'],
+      ['얼굴이 푸르스름·초록빛이면 (흰색 LED·형광등)', 'Q 버튼 → WB → 백색형광등. AWB 분위기 우선은 노란 전구만 살림'],
+      ['얼굴이 너무 주황이면 (노란 전구)', 'Q 버튼 → WB → 텅스텐, 또는 AWB 화이트 우선'],
       ['얼굴이 어두우면', '노출보정 +0.3'],
     ],
-    tips: ['스탠드 하나를 얼굴 옆 45도에 두면 조명 사진처럼 됨.', '안티플리커를 켜두면 LED 조명 줄무늬를 피함.'] },
+    tips: ['스탠드 하나를 얼굴 옆 45도에 두면 조명 사진처럼 됨.', '안티플리커(있는 기종)를 켜두면 형광등·구형 LED 줄무늬를 피함. 없는 기종은 셔터 1/60·1/125에서 덜함.', '어두우면 눈 대신 옷깃·머리카락 경계처럼 대비 있는 곳에 AF.'] },
 
-  { id: 'cafe', label: '카페·식당', sub: '단렌즈가 유리', light: 'dim', mode: 'Av',
+  { id: 'cafe', label: '카페·식당', sub: '어두움, 밝은 렌즈 추천', light: 'dim', mode: 'Av',
+    perCombo: { '*.kid': { minShutter: 1 / 320, adjustFirst: ['아이가 뛰어다니면', '{minShutterSet} 1/500 (ISO가 상한에 걸리면 창가 자리로)'] } },
     apRule: 'portrait', ec: 0, wb: 'awbAmb', metering: '평가 측광', ps: '인물',
     why: '어두운 상황. f/4 줌은 ISO가 상한 근처까지 오르니 밝은 단렌즈가 유리. 조명 색은 AWB 분위기 우선으로 남김.',
     adjust: [
@@ -450,12 +461,12 @@ const SCENES = [
     ],
     tips: ['조명 바로 아래보다 조명이 옆이나 뒤에 있는 자리가 얼굴에 좋음.'] },
 
-  { id: 'nightPortrait', label: '야경 배경 인물', sub: 'M 모드', light: 'nightFace', mode: 'M',
+  { id: 'nightPortrait', label: '야경 배경 인물', sub: '불빛은 보케, 얼굴은 밝게', light: 'nightFace', mode: 'M',
     apRule: 'portrait', ec: 0, wb: 'awbAmb', metering: '평가 측광 (M에서는 참고용)', ps: '인물',
     perCombo: { 'slow.kid': { minShutter: 1 / 250, adjustFirst: ['', '밤에 아이는 멈춘 순간만. 가능하면 밝은 단렌즈로 교체'] } },
     why: 'Av로 두면 카메라가 어두운 배경까지 밝히려고 셔터를 늦춰 흔들림. M으로 셔터를 고정하고 ISO로 얼굴 밝기를 맞춤. 배경 불빛은 보케가 됨.',
     adjust: [
-      ['얼굴이 어두우면', 'ISO 버튼 → 메인 다이얼 한 클릭씩 올리기 ({isoSteps}). 상한 {isoHard}'],
+      ['얼굴이 어두우면', '{isoDial} ({isoSteps}). 상한 {isoHard}'],
       ['배경 불빛이 하얗게 번지면', '셔터 한 클릭 빠르게 ({shutterSteps})'],
       ['얼굴에 빛이 안 닿으면', '설정으로 못 고침. 간판·쇼윈도 앞으로 자리 이동'],
     ],
@@ -472,7 +483,7 @@ const STYLES = [
     failure: '배경이 바로 뒤에 붙어 있음. 또는 최단 촬영거리 안으로 다가가 초점이 안 맞음.', image: 'img/softKid.jpg' },
   { id: 'rimLight', title: '역광에 머리카락이 빛나는 사진', desc: '머리카락 테두리가 빛나고 얼굴도 밝음.',
     scene: 'backlit', subject: 'still', lens: 'ef50', recommend: { maxAp: 2.2 }, override: { ec: 1, metering: '스팟 측광. 중앙점을 얼굴에 대고 반셔터',
-      dialExtra: ['측광 모드 버튼 → 스팟 측광. 중앙점을 얼굴에 대고 반셔터'] },
+      dialExtra: ['Q 버튼 → 측광 모드 → 스팟. 중앙점을 얼굴에 대고 * 버튼(AE 잠금)을 누른 뒤 구도 바꾸기 (반셔터만으론 스팟 노출이 고정되지 않음)'] },
     conditions: '해를 등지게 세우기. 해가 낮은 오후 4시 이후. 배경이 어두운 나무·건물이면 테두리 빛이 더 보임.',
     failure: '노출보정 없이 찍어 얼굴이 검게 나옴. 해가 렌즈에 직접 들어와 뿌옇게 번짐.', image: 'img/rimLight.jpg' },
   { id: 'silhouette', title: '실루엣', desc: '붉은 하늘에 검은 윤곽만.',
@@ -509,7 +520,7 @@ const STYLES = [
   { id: 'familySelf', title: '셀프 가족사진', desc: '전원 선명, 카메라는 삼각대 위.',
     scene: 'outdoorShade', subject: 'still', lens: 'ef24105', recommend: { maxWide: 35 }, override: { aperture: 5.6, tripod: true, drive: '셀프타이머 10초 + 연속 (2~10장)',
       afArea: '1점 AF를 가운데 사람 얼굴에 맞춘 뒤 렌즈 스위치 MF로 고정',
-      dialExtra: ['1점 AF로 가운데 사람 얼굴에 반셔터 → 초점 맞으면 렌즈 옆 스위치를 MF로', '드라이브 버튼 → 셀프타이머 10초 + 연속'] },
+      dialExtra: ['1점 AF로 가운데 사람 얼굴에 반셔터 → 초점 맞으면 렌즈 옆 스위치를 MF로 (스위치 없는 RF 렌즈는 MENU → AF → Focus mode → MF)', '드라이브 버튼 → 셀프타이머 10초 + 연속 (6D·5D4는 연속 셀프타이머가 없어 10초로 한 장씩)', '더 쉬운 방법: Canon Camera Connect 앱으로 폰 화면 보며 원격 셔터 (얼굴 터치로 초점)'] },
     conditions: '삼각대 (또는 올려놓을 곳). 모두 같은 줄에 서기. 카메라와 2~3m.',
     failure: '자동 AF가 앞사람에게 맞아 뒷사람 흐림. f/2.2로 찍어 한 명만 선명.', image: 'img/familySelf.jpg' },
 ];
@@ -528,8 +539,8 @@ const SETUP_COMMON = [
     why: 'JPEG의 고감도 노이즈를 줄임. RAW에는 적용되지 않음.', note: 'Multi Shot NR은 RAW+JPEG에서 선택 불가.' },
   { key: 'alo', title: '오토 라이팅 옵티마이저', value: 'Standard', pathKo: '오토 라이팅 옵티마이저',
     why: '역광 얼굴과 어두운 부분을 자동으로 밝힘. 폰 자동 보정과 가장 비슷한 기능.', note: '기본 설정에선 M·B 모드에서 꺼짐.' },
-  { key: 'antiFlicker', title: '안티플리커', value: 'Enable', pathKo: '플리커 방지 촬영',
-    why: '실내 형광등·LED에서 사진마다 밝기와 색이 달라지는 걸 막음.' },
+  { key: 'antiFlicker', title: '안티플리커', value: 'Enable (실내 형광등·구형 LED). 야외·연사가 급하면 Disable', pathKo: '플리커 방지 촬영',
+    why: '실내 형광등·LED에서 사진마다 밝기와 색이 달라지는 걸 막음. 켜면 셔터 반응과 연사 속도가 살짝 느려지고 100/120Hz 깜빡임만 잡음(PWM LED는 못 잡음).' },
   { key: 'lensAdapter', title: '마운트 어댑터', value: 'EF 렌즈를 쓸 때 EF-EOS R 어댑터 장착', pathKo: '해당 없음', onlyMount: 'RF',
     why: 'RF 바디에 EF 렌즈를 쓰려면 어댑터가 필요함. 노출·AF 동작은 동일.' },
   // onlyIf: camera.menu에 그 키가 있는 바디에서만 표시 (미러리스 전용)
