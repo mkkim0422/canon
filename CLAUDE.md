@@ -28,7 +28,9 @@
 ## 안드로이드 앱 (Capacitor, 스토어 출시용)
 - 네이티브 프로젝트는 `C:\dev\canon6d2-app` (한글·공백 경로에서 Gradle이 깨져 OneDrive 밖에 둠). 웹 소스는 이 폴더가 원본이고 거기로 복사만 한다.
 - 갱신 절차: `cd C:\dev\canon6d2-app` → `node sync-www.js`(www/ 복사) → `node node_modules\@capacitor\cli\bin\capacitor sync android` → `android\gradlew.bat assembleDebug bundleRelease` (JAVA_HOME=`C:\Program Files\Android\Android Studio\jbr`). PowerShell에서 실행. Git Bash에서는 node가 127로 죽는 경우가 있음.
-- 패키지명 `app.sixd2.setting`, 앱 이름 "6D2 세팅". 패키지명은 스토어 등록 후 바꿀 수 없다.
+- 패키지명 `app.sixd2.setting`, 앱 이름 "카메라 치트키"(capacitor.config.json appName). 패키지명은 스토어 등록 후 바꿀 수 없다.
+- 2026-10-09 이 PC(`C:민규앱canon`)에 네이티브 프로젝트를 `C:devcanon6d2-app`로 다시 만들었다(Capacitor 8.5, @capacitor/app, 아이콘 원본 `assets-src/icon.html` → `assets/icon-only.png`). 폰(SM-S926N)의 앱은 이제 **이 PC의 디버그 키**로 서명돼 있다(versionCode 2 / 1.1). 다른 PC에서 빌드한 APK를 덮어쓰면 서명이 달라 데이터가 지워지므로, 그 PC에서 설치하려면 이 PC의 `~/.android/debug.keystore`를 옮겨 쓸 것. 출시용 upload.jks는 이 PC에 없다(bundleRelease 불가).
+- 서명이 다른 디버그 빌드끼리 교체해야 할 때는 설치 전에 `adb exec-out run-as app.sixd2.setting tar cf - app_webview`로 WebView 저장소를 백업하고, 새 APK 설치 후 **첫 실행 전에** `Local Storage` 폴더를 run-as로 되돌리면 데이터가 유지된다(origin https://localhost 동일). Git Bash에서는 `MSYS_NO_PATHCONV=1` 필수.
 - 서명 키 `C:\dev\canon6d2-app\keystore\upload.jks`, 비밀번호는 `android\keystore.properties`. 둘 다 git 제외. 잃어버리면 Play 콘솔에서 업로드 키 재설정 요청 필요.
 - 버전 올릴 때 `android\app\build.gradle`의 versionCode(+1)와 versionName을 수정.
 - 결과물: 디버그 APK `android\app\build\outputs\apk\debug\app-debug.apk`, 출시용 AAB `android\app\build\outputs\bundle\release\app-release.aab`.
